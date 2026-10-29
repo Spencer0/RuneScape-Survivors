@@ -2,6 +2,7 @@
 // telegraphs, hitsplats/HP bars, the HUD, level-up cards and the pause / victory dialogs.
 import { Cycle } from '#/client/Cycle.js';
 import ClientEntity from '#/dash3d/ClientEntity.js';
+import Model from '#/dash3d/Model.js';
 import Pix3D from '#/dash3d/Pix3D.js';
 import World from '#/dash3d/World.js';
 import Pix2D from '#/graphics/Pix2D.js';
@@ -81,6 +82,7 @@ export default class RunScreen {
         this.overDelay = -1;
 
         World.clearHighlights();
+        RunScreen.setArenaBounds(arenaData);
         scene.build(arenaData.centreZoneX, arenaData.centreZoneZ, arenaData.boundaryLocs);
         scene.clearObjs();
         entities.reset();
@@ -106,6 +108,33 @@ export default class RunScreen {
     stop(): void {
         this.bridge.stop();
         World.clearHighlights();
+        World.boundMinX = World.boundMinZ = 0;
+        World.boundMaxX = World.boundMaxZ = 104;
+    }
+
+    // draw the arena plus a margin of the real map around it (enough to frame it at max zoom)
+    static setArenaBounds(a: ArenaData): void {
+        const bin = atob(a.flags);
+        const flags = new Int32Array(new Uint8Array([...bin].map(c => c.charCodeAt(0))).buffer);
+        let minX = 104;
+        let minZ = 104;
+        let maxX = 0;
+        let maxZ = 0;
+        for (let x = 0; x < 104; x++) {
+            for (let z = 0; z < 104; z++) {
+                if ((flags[x * 104 + z] & 0x4000000) === 0) {
+                    minX = Math.min(minX, x);
+                    maxX = Math.max(maxX, x);
+                    minZ = Math.min(minZ, z);
+                    maxZ = Math.max(maxZ, z);
+                }
+            }
+        }
+        const m = 10;
+        World.boundMinX = Math.max(0, minX - m);
+        World.boundMinZ = Math.max(0, minZ - m);
+        World.boundMaxX = Math.min(104, maxX + m + 1);
+        World.boundMaxZ = Math.min(104, maxZ + m + 1);
     }
 
     get simPaused(): boolean {
@@ -315,6 +344,9 @@ export default class RunScreen {
             entities.player.setAppearance(buildAppearance(this.look, this.worn, this.anims, this.headicon >= 0 ? 1 << this.headicon : 0));
         }
 
+        Model.minLocScreenRadius = camera.zoom > 4000 ? 1.5 + (camera.zoom - 4000) / 1800 : 0;
+        // the client's low-detail ground path (average texture colour) once tiles are a few px wide
+        World.lowMem = camera.zoom > 6000;
         entities.addToWorld(this.worldUpdateNum);
         this.worldUpdateNum = 0;
         scene.world.renderAll(camera.camX, camera.camY, camera.camZ, this.host.options.hideRoofs ? 0 : 3, camera.camYaw, camera.camPitch);

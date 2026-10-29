@@ -15,6 +15,10 @@ export default class NpcType {
     static recent: (NpcType | null)[] | null = null;
     static recentPos: number = 0;
     static modelCache: LruCache<Model> = new LruCache(30);
+    // survivors: hordes share npc types and animation frames, so cache the animated model per
+    // (type, primary frame, secondary frame) instead of re-animating it for every NPC every frame
+    static animCacheEnabled: boolean = false;
+    private static animCache: Map<string, Model> = new Map();
 
     id: number = -1;
 
@@ -165,6 +169,15 @@ export default class NpcType {
     }
 
     getTempModel(primaryTransformId: number, secondaryTransformId: number, seqMask: Int32Array | null): Model | null {
+        let key = '';
+        if (NpcType.animCacheEnabled) {
+            key = `${this.id}|${primaryTransformId}|${secondaryTransformId}`;
+            const hit = NpcType.animCache.get(key);
+            if (hit) {
+                return hit;
+            }
+        }
+
         let model = NpcType.modelCache.find(BigInt(this.id));
 
         if (!model && this.model) {
@@ -227,7 +240,23 @@ export default class NpcType {
             tmp.useAABBMouseCheck = true;
         }
 
+        if (NpcType.animCacheEnabled) {
+            // own copies of the per-instance arrays (tempModel's live in shared static buffers)
+            const copy: Model = Object.assign(Object.create(Object.getPrototypeOf(tmp)), tmp);
+            copy.pointX = tmp.pointX!.slice(0, tmp.numPoints);
+            copy.pointY = tmp.pointY!.slice(0, tmp.numPoints);
+            copy.pointZ = tmp.pointZ!.slice(0, tmp.numPoints);
+            if (tmp.faceAlpha) copy.faceAlpha = tmp.faceAlpha.slice(0, tmp.numFaces);
+            if (NpcType.animCache.size > 800) NpcType.animCache.clear();
+            NpcType.animCache.set(key, copy);
+            return copy;
+        }
+
         return tmp;
+    }
+
+    static clearAnimCache(): void {
+        this.animCache.clear();
     }
 
     getHead(): Model | null {

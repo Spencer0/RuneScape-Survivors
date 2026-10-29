@@ -126,6 +126,7 @@ export default class Model extends ModelSource {
     static mouseX: number = 0;
     static mouseY: number = 0;
     static pickedCount: number = 0;
+    static minLocScreenRadius: number = 0; // survivors: px; 0 = never skip
     static pickedEntityTypecode: Int32Array = new Int32Array(1000);
 
     static init(total: number, provider: OnDemandProvider) {
@@ -1722,6 +1723,11 @@ export default class Model extends ModelSource {
 
         const maxZ: number = midZ + radiusCosEyePitch;
         if (maxZ <= 50 || midZ >= World.farClip) {
+            return;
+        }
+
+        // survivors: at tactical zoom, skip scenery models smaller than ~1.5 px (grass, flowers...)
+        if (Model.minLocScreenRadius > 0 && (typecode & 0x60000000) === 0x40000000 && midZ > 0 && (this.radius << 10) < Model.minLocScreenRadius * 2 * midZ) {
             return;
         }
 

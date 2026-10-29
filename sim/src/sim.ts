@@ -1019,8 +1019,10 @@ export class Sim implements SimApi {
                 const nz = e.z + DZ[d];
                 const fd = this.flow.at(nx, nz);
                 if (fd === FlowField.UNREACHABLE) continue;
-                // move downhill; sideways steps allowed into empty tiles to spread around the player
-                if (fd > here || (fd === here && occ[idx(nx, nz)] > 0)) continue;
+                // move downhill; sideways steps allowed into empty tiles to spread around the player.
+                // stacking is allowed but capped so the horde forms a crowd rather than one pile
+                const o = occ[idx(nx, nz)];
+                if (fd > here || (fd === here && o > 0) || (o >= 2 && fd > 1)) continue;
                 const score = fd * 8 + occ[idx(nx, nz)] * 5 + (fd === here ? 6 : 0) + (DX[d] !== 0 && DZ[d] !== 0 ? 1 : 0);
                 if (score < bestScore) {
                     bestScore = score;

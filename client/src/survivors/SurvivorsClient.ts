@@ -8,6 +8,7 @@
 import GameShell from '#/client/GameShell.js';
 import { Cycle } from '#/client/Cycle.js';
 
+import NpcType from '#/config/NpcType.js';
 import Pix3D from '#/dash3d/Pix3D.js';
 import World from '#/dash3d/World.js';
 import Pix2D from '#/graphics/Pix2D.js';
@@ -148,6 +149,7 @@ export default class SurvivorsClient extends GameShell {
             });
             await Save.load();
 
+            NpcType.animCacheEnabled = true;
             World.drawRadius = 64;
             World.dynamicVis = true;
             World.farClip = 16000;
@@ -199,7 +201,7 @@ export default class SurvivorsClient extends GameShell {
             gear: { ...cp.equipped },
             perks: { ...p.perks },
             appearance: [],
-            bossTimes: p.options.bossTimes.map(m => Math.round(m * 100)),
+            bossTimes: (this.params.get('bossat') ? this.params.get('bossat')!.split(',').map(Number) : p.options.bossTimes).map(m => Math.round(m * 100)),
             debugMaxTalents: debugMax,
             debugHorde: this.params.get('horde') ? parseInt(this.params.get('horde')!, 10) : undefined
         };
@@ -457,6 +459,10 @@ export default class SurvivorsClient extends GameShell {
             zoom: this.camera.zoom,
             talentXpMax: talentXpForPoint(30)
         };
+    }
+
+    renderMs(): number {
+        return (this.runScreen as unknown as { renderMs: number }).renderMs;
     }
 
     debugCamera(zoom: number, pitch: number, yaw: number): void {

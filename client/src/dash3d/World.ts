@@ -90,6 +90,11 @@ export default class World {
     static drawRadius: number = 25;
     static dynamicVis: boolean = false;
     static farClip: number = 3500;
+    // survivors: optional tile bounds (e.g. arena + margin) outside which nothing is drawn
+    static boundMinX: number = 0;
+    static boundMinZ: number = 0;
+    static boundMaxX: number = 104;
+    static boundMaxZ: number = 104;
     private static dynVis: boolean[][] = [];
 
     // survivors: per-tile highlight colours for boss telegraphs, drawn translucently on top of the
@@ -1126,23 +1131,23 @@ export default class World {
         World.maxLevel = maxLevel;
 
         World.minX = World.gx - World.drawRadius;
-        if (World.minX < 0) {
-            World.minX = 0;
+        if (World.minX < World.boundMinX) {
+            World.minX = World.boundMinX;
         }
 
         World.minZ = World.gz - World.drawRadius;
-        if (World.minZ < 0) {
-            World.minZ = 0;
+        if (World.minZ < World.boundMinZ) {
+            World.minZ = World.boundMinZ;
         }
 
         World.maxX = World.gx + World.drawRadius;
-        if (World.maxX > this.maxTileX) {
-            World.maxX = this.maxTileX;
+        if (World.maxX > Math.min(this.maxTileX, World.boundMaxX)) {
+            World.maxX = Math.min(this.maxTileX, World.boundMaxX);
         }
 
         World.maxZ = World.gz + World.drawRadius;
-        if (World.maxZ > this.maxTileZ) {
-            World.maxZ = this.maxTileZ;
+        if (World.maxZ > Math.min(this.maxTileZ, World.boundMaxZ)) {
+            World.maxZ = Math.min(this.maxTileZ, World.boundMaxZ);
         }
 
         this.calcOcclude();

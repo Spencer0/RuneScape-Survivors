@@ -115,7 +115,20 @@ export function extractGameData(contentDir: string, _cache: CacheReader): GameDa
     const synths = pack('synth');
     const idks = pack('idk');
 
+    // curated configs first; generic monsters (man, goblin, giants, demons...) only exist in the raw
+    // revision dumps under _unpack, so fall back to those (newest revision first)
     const configs = parseConfigs(walk(path.join(contentDir, 'scripts'), '.npc'));
+    for (const rev of ['274', '254', '244', '225']) {
+        const dump = path.join(contentDir, 'scripts/_unpack', rev, 'all.npc');
+        if (!fs.existsSync(dump)) {
+            continue;
+        }
+        for (const [name, props] of parseConfigs([dump])) {
+            if (!configs.has(name)) {
+                configs.set(name, props);
+            }
+        }
+    }
     const npcs: Record<string, NpcInfo> = {};
 
     const seq = (name: string | undefined): number => {

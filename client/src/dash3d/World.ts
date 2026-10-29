@@ -1157,7 +1157,7 @@ export default class World {
                         continue;
                     }
 
-                    if (tile.drawLevel <= maxLevel && (World.visBackingDirty[x + World.drawRadius - World.gx][z + World.drawRadius - World.gz] || this.groundh[level][x][z] - eyeY >= 2000)) {
+                    if (tile.drawLevel <= maxLevel && (World.visBackingDirty![x + World.drawRadius - World.gx][z + World.drawRadius - World.gz] || this.groundh[level][x][z] - eyeY >= 2000)) {
                         tile.drawFront = true;
                         tile.drawBack = true;
                         tile.drawSprites = tile.spriteCount > 0;

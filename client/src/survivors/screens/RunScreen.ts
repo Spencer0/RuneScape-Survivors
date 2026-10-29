@@ -65,10 +65,11 @@ export default class RunScreen {
     private overDelay = -1;
     private snapsThisSecond = 0;
     private bossNameCycle = 0;
+    telegraphCount = 0;
 
     constructor(private readonly host: RunHost) {}
 
-    async start(arenaData: ArenaData, loadout: RunLoadout, look: Look): Promise<void> {
+    async start(arenaData: ArenaData, loadout: RunLoadout, look: Look, bot?: string, endless?: boolean): Promise<void> {
         const { scene, entities, camera } = this.host;
         const zone = ZONE_BY_ID[loadout.zoneId];
         this.zoneName = zone.name;
@@ -100,7 +101,7 @@ export default class RunScreen {
         camera.options = { shake: this.host.options.shake, bossIntro: this.host.options.bossIntro, autoFrame: this.host.options.autoFrame, lead: this.host.options.cameraLead };
 
         const db: GameDb = { npcs: Assets.game.npcs, seqs: Assets.game.seqs, spotanims: Assets.game.spotanims, objs: Assets.game.objs, locs: Assets.game.locs, synths: Assets.game.synths };
-        this.bridge.start(arenaData, db, loadout);
+        this.bridge.start(arenaData, db, loadout, bot, endless);
         Music.play(arenaData.music, this.host.options.music);
         this.message(`Welcome to ${zone.name}. Click or tap any tile to walk there.`, COL.WHITE);
     }
@@ -138,6 +139,7 @@ export default class RunScreen {
     }
 
     get simPaused(): boolean {
+        if (this.bridge.autoplay) return this.paused || this.results !== null || this.host.camera.inIntro;
         return this.paused || this.blurred || this.levelUp !== null || this.victory || this.results !== null || this.host.camera.inIntro;
     }
 
@@ -205,6 +207,7 @@ export default class RunScreen {
         for (const l of snap.locs) scene.setLoc(l.x, l.z, l.loc, l.shape, l.angle);
 
         World.clearHighlights();
+        this.telegraphCount = snap.telegraphs.length;
         for (const t of snap.telegraphs) {
             // brighter as impact approaches
             const alpha = Math.min(210, 90 + ((t.total - t.ticksLeft + 1) * 120) / Math.max(1, t.total));
@@ -443,8 +446,14 @@ export default class RunScreen {
         }
         const p11 = Assets.fonts.p11;
         const b12 = Assets.fonts.b12;
+        // at tactical zoom only bosses/elites keep full overlays; the horde gets small bars only
+        const zoom = this.host.camera.zoom;
+        const far = zoom > 5200;
+        const barW = far ? 12 : zoom > 3800 ? 20 : 30;
         for (const entity of list) {
             if (!entity.isReady()) continue;
+            const slot = entity === entities.player ? -1 : entities.npc.indexOf(entity as never);
+            const important = slot === -1 || (slot >= 0 && entities.elite[slot] > 0);
             if (entity === entities.player && this.headicon >= 0) {
                 this.overlayPos(entity, entity.height + 15);
                 if (this.projX > -1) Assets.pix32('headicons', this.headicon)?.plotSprite(this.projX - 12, this.projY - 30);
@@ -459,12 +468,15 @@ export default class RunScreen {
             if (entity.combatCycle > Cycle.loop + 100) {
                 this.overlayPos(entity, entity.height + 15);
                 if (this.projX > -1 && entity.totalHealth > 0) {
-                    let w: number = ((entity.health * 30) / entity.totalHealth) | 0;
-                    if (w > 30) w = 30;
-                    Pix2D.fillRect(this.projX - 15, this.projY - 3, w, 5, COL.GREEN);
-                    Pix2D.fillRect(this.projX - 15 + w, this.projY - 3, 30 - w, 5, COL.RED);
+                    const bw = important ? 30 : barW;
+                    const bh = important || !far ? 5 : 2;
+                    let w: number = ((entity.health * bw) / entity.totalHealth) | 0;
+                    if (w > bw) w = bw;
+                    Pix2D.fillRect(this.projX - (bw >> 1), this.projY - 3, w, bh, COL.GREEN);
+                    Pix2D.fillRect(this.projX - (bw >> 1) + w, this.projY - 3, bw - w, bh, COL.RED);
                 }
             }
+            if (far && !important) continue;
             for (let i = 0; i < 4; ++i) {
                 if (entity.damageCycles[i] <= Cycle.loop) continue;
                 this.overlayPos(entity, (entity.height / 2) | 0);
@@ -657,7 +669,7 @@ export default class RunScreen {
         const n = lv.cards.length;
         const portrait = Ui.portrait || W < 560;
         const cardW = portrait ? Math.min(W - 24, 360) : Math.min(210, ((W - 40) / n) | 0) - 8;
-        const cardH = portrait ? Math.min(118, ((H - 150) / n) | 0) - 6 : 230;
+        const cardH = portrait ? Math.min(118, ((H - 150) / n) | 0) - 6 : 176;
         const totalW = portrait ? cardW : n * (cardW + 8) - 8;
         const totalH = portrait ? n * (cardH + 6) - 6 : cardH;
         const x0 = (W - totalW) >> 1;

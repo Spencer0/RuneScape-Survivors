@@ -31,16 +31,19 @@ export default class PlayerPreview {
         this.player.secondaryAnimCycle = this.cycle;
     }
 
-    draw(cx: number, cy: number, zoom: number = 700): void {
+    // draws the player standing with its feet at (cx, feetY), about `height` px tall
+    draw(cx: number, feetY: number, height: number): void {
         const model = this.player.getTempModel();
         if (!model) return;
         const ox = Pix3D.originX;
         const oy = Pix3D.originY;
-        Pix3D.originX = cx;
-        Pix3D.originY = cy;
-        const xan = 80;
-        const eyeY = ((Pix3D.sinTable[xan] * zoom) >> 16) - 90;
+        const xan = 60;
+        const zoom = Math.max(300, ((300 * 512) / Math.max(40, height)) | 0);
+        const eyeY = (Pix3D.sinTable[xan] * zoom) >> 16;
         const eyeZ = (Pix3D.cosTable[xan] * zoom) >> 16;
+        // objRender projects the model origin (its feet) to originY + (eyeY << 9) / eyeZ
+        Pix3D.originX = cx;
+        Pix3D.originY = feetY - (((eyeY << 9) / eyeZ) | 0);
         model.objRender(0, this.yaw & 0x7ff, 0, xan, 0, eyeY, eyeZ);
         Pix3D.originX = ox;
         Pix3D.originY = oy;

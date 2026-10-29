@@ -39,12 +39,12 @@ export default class ResultsScreen {
         const ph = H - 12;
         Gfx.panel(px, 6, pw, ph);
         const zone = ZONE_BY_ID[r.zoneId];
-        Gfx.centre(r.won ? `${zone.name} cleared!` : 'Oh dear, you are dead!', W >> 1, 30, r.won ? COL.GREEN : COL.RED, 'q8');
-        Gfx.centre(`${CLASSES[r.classId as ClassId].name} - ${zone.name}${r.endless ? ' (endless)' : ''}`, W >> 1, 46, COL.ORANGE, 'p12');
+        Gfx.centre(r.won ? `${zone.name} cleared!` : 'Oh dear, you are dead!', W >> 1, 42, r.won ? COL.GREEN : COL.RED, 'q8');
+        Gfx.centre(`${CLASSES[r.classId as ClassId].name} - ${zone.name}${r.endless ? ' (endless)' : ''}`, W >> 1, 58, COL.ORANGE, 'p12');
 
-        const listTop = 56;
+        const listTop = 66;
         const btnH = 40;
-        const area: Rect = { x: px + 12, y: listTop, w: pw - 24, h: ph - listTop - btnH - 4 };
+        const area: Rect = { x: px + 22, y: listTop, w: pw - 44, h: ph - listTop - btnH - 10 };
         const two = area.w >= 520;
         const secs = Math.round(r.ticksSurvived * 0.6);
         const stats: [string, string][] = [
@@ -129,7 +129,7 @@ export default class ResultsScreen {
             }
         });
 
-        if (Ui.button({ x: px + 12, y: 6 + ph - btnH - 6, w: pw - 24, h: btnH }, 'Continue')) this.onContinue();
+        if (Ui.button({ x: px + 22, y: 6 + ph - btnH - 14, w: pw - 44, h: btnH }, 'Continue')) this.onContinue();
         void Pix2D;
         void Assets;
     }

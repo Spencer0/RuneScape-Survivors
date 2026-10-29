@@ -33,6 +33,7 @@ export type RunStat = {
     kills: number;
     won: boolean;
     bosses: number;
+    bossFights: number;
     telegraphDamage: number;
     telegraphHits: number;
     damageTaken: number;
@@ -105,6 +106,7 @@ export function runOne(classId: ClassId, zoneId: string, kind: BotKind, seed: nu
         kills: sim.kills,
         won: res?.won ?? false,
         bosses: sim.bossesKilled.length,
+        bossFights: sim.bossesSpawned,
         telegraphDamage: sim.telegraphDamage,
         telegraphHits: sim.telegraphHits,
         damageTaken: sim.damageTaken,
@@ -169,9 +171,9 @@ function main() {
         const d = runOne(classId, zone.id, 'dodger', seed, { maxTalents: true });
         const ig = runOne(classId, zone.id, 'ignorer', seed, { maxTalents: true });
         study.push(d, ig);
-        fights += Math.max(1, d.bosses + (d.ticks >= 300 ? 1 : 0));
+        fights += d.bossFights;
         seed++;
-        if (study.length > bossFights * 4) break;
+        if (study.length > bossFights * 6) break;
     }
 
     // 3) balance targets: untalented zone-1 dodgers, and a max-talent profile on zone 1
@@ -222,8 +224,8 @@ function buildReport(results: RunStat[], study: RunStat[], z1: RunStat[], z1max:
     const dod = study.filter(r => r.bot === 'dodger');
     const ign = study.filter(r => r.bot === 'ignorer');
     const bossTicks = (rs: RunStat[]) => avg(rs.map(r => Math.max(0, r.ticks - 300)));
-    lines.push(`- Perfect dodger (walking only): ${dod.length} runs, ${dod.reduce((a, r) => a + r.bosses, 0)} bosses killed, telegraph hits **${dod.reduce((a, r) => a + r.telegraphHits, 0)}**, telegraph damage **${dod.reduce((a, r) => a + r.telegraphDamage, 0)}**.`);
-    lines.push(`- Telegraph ignorer: ${ign.length} runs, ${ign.reduce((a, r) => a + r.bosses, 0)} bosses killed, telegraph hits ${ign.reduce((a, r) => a + r.telegraphHits, 0)}, telegraph damage ${ign.reduce((a, r) => a + r.telegraphDamage, 0)}.`);
+    lines.push(`- Perfect dodger (walking only): ${dod.length} runs, **${dod.reduce((a, r) => a + r.bossFights, 0)} boss fights**, ${dod.reduce((a, r) => a + r.bosses, 0)} bosses killed, telegraph hits **${dod.reduce((a, r) => a + r.telegraphHits, 0)}**, telegraph damage **${dod.reduce((a, r) => a + r.telegraphDamage, 0)}**.`);
+    lines.push(`- Telegraph ignorer: ${ign.length} runs, ${ign.reduce((a, r) => a + r.bossFights, 0)} boss fights, ${ign.reduce((a, r) => a + r.bosses, 0)} bosses killed, telegraph hits ${ign.reduce((a, r) => a + r.telegraphHits, 0)}, telegraph damage ${ign.reduce((a, r) => a + r.telegraphDamage, 0)}.`);
     lines.push(`- Average time alive after the first boss (3:00): dodger ${fmtTime(bossTicks(dod))}, ignorer ${fmtTime(bossTicks(ign))}.`);
     lines.push('');
     lines.push('## Balance targets');

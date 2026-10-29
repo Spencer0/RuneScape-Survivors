@@ -2,6 +2,7 @@
 // Collection, Achievements and Options tabs. Lays out for landscape or portrait frames.
 import Pix2D from '#/graphics/Pix2D.js';
 
+import { CLASS_POOLS } from '../../../../sim/src/content/abilities.js';
 import { CLASSES, GEAR_SLOTS, TIER_NAMES, setBonusText, type GearSlot } from '../../../../sim/src/content/classes.js';
 import { ZONES, ZONE_BY_ID } from '../../../../sim/src/content/zones.js';
 import { ACHIEVEMENTS, REWARDS, canRankTalent, rankTalent, respec, rewardCostFor, spentAchievementPoints, spentPoints, talentPoints, talentXpForPoint, zoneLockText, type Profile } from '../../../../sim/src/meta.js';
@@ -207,6 +208,16 @@ export default class MenuScreen {
             Gfx.text(`Best time: ${Math.floor(best / 60)}:${String(best % 60).padStart(2, '0')}`, r.x + 12, ty + 58, COL.GREY, 'p11');
             const pts = talentPoints(cp.talentXp);
             Gfx.text(`Talent points: ${pts} (${spentPoints(cp)} spent)`, r.x + 12, ty + 72, COL.GREY, 'p11');
+            Gfx.text('Class abilities:', r.x + 12, ty + 96, COL.ORANGE, 'p12');
+            const pool = CLASS_POOLS[this.classId];
+            const per = Math.max(1, Math.floor((r.w - 24) / 30));
+            pool.forEach((ab, i) => {
+                const ix = r.x + 12 + (i % per) * 30;
+                const iy = ty + 102 + Math.floor(i / per) * 30;
+                Assets.pix32('miscgraphics', ab.id === cls.start ? 7 : 0)?.plotSprite(ix - 5, iy - 5);
+                Gfx.icon(ab.icon[0], ab.icon[1], ix, iy);
+                if (Ui.hover({ x: ix, y: iy, w: 26, h: 26 })) Ui.tooltip = `${ab.name}: ${ab.targeting ?? ''}`;
+            });
         }
     }
 
@@ -223,7 +234,7 @@ export default class MenuScreen {
         const pvW = Math.min(110, (r.w * 0.42) | 0);
         const pv: Rect = { x: r.x + 8, y: r.y + 34, w: pvW, h: r.h - 44 };
         Gfx.inset(pv.x, pv.y, pv.w, pv.h, 120);
-        Gfx.clip(pv.x, pv.y, pv.x + pv.w, pv.y + pv.h, () => this.preview.draw(pv.x + (pv.w >> 1), pv.y + (pv.h >> 1), Math.max(500, 120000 / pv.h)));
+        Gfx.clip(pv.x, pv.y, pv.x + pv.w, pv.y + pv.h, () => this.preview.draw(pv.x + (pv.w >> 1), pv.y + pv.h - 12, Math.min(pv.h - 30, pv.w * 2)));
         if (Ui.hit(pv)) this.preview.yaw = (this.preview.yaw + 256) & 0x7ff;
 
         const ax = pv.x + pv.w + 6;
@@ -302,7 +313,7 @@ export default class MenuScreen {
         Gfx.text(`${cls.name} talents`, a.x + 12, a.y + 20, COL.ORANGE, 'b12');
         const next = talentXpForPoint(pts + 1);
         Gfx.text(`Points: ${pts - spent} free / ${pts} earned   XP ${Math.floor(cp.talentXp)} / ${next}`, a.x + 12, a.y + 36, COL.YELLOW, 'p12');
-        if (Ui.button({ x: a.x + a.w - 100, y: a.y + 8, w: 90, h: 26 }, 'Respec', { font: 'p12', tip: 'Refund all points (free)' })) {
+        if (Ui.button({ x: a.x + a.w - 112, y: a.y + 12, w: 90, h: 26 }, 'Respec', { font: 'p12', tip: 'Refund all points (free)' })) {
             respec(cp);
             this.save();
             this.say('Talents reset.');
@@ -418,7 +429,7 @@ export default class MenuScreen {
         if (a.w > 520 && a.h > 300) {
             const pv: Rect = { x: a.x + a.w - 130, y: a.y + 40, w: 120, h: Math.min(260, a.h - 50) };
             Gfx.inset(pv.x, pv.y, pv.w, pv.h, 120);
-            Gfx.clip(pv.x, pv.y, pv.x + pv.w, pv.y + pv.h, () => this.preview.draw(pv.x + (pv.w >> 1), pv.y + (pv.h >> 1), Math.max(500, 120000 / pv.h)));
+            Gfx.clip(pv.x, pv.y, pv.x + pv.w, pv.y + pv.h, () => this.preview.draw(pv.x + (pv.w >> 1), pv.y + pv.h - 12, Math.min(pv.h - 30, pv.w * 2)));
         }
     }
 

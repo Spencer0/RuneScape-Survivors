@@ -160,6 +160,7 @@ export class Sim implements SimApi {
     bossesKilled: string[] = [];
     finalBossKiller: string | null = null;
     guardiansKilled = 0;
+    bossesSpawned = 0;
     cachesOpened = 0;
     maxAlive = 0;
 
@@ -1515,6 +1516,7 @@ export class Sim implements SimApi {
         const dummy: EnemyDef = { id: def.id, npc: def.forms[0].npc, hp: def.hp, damage: def.damage, attackSpeed: def.attackSpeed, range: def.range, style: def.forms[0].style, speed: 1, xp: 300 };
         const e = this.spawnEnemy(dummy, x, z, 2, def);
         if (!e) return;
+        this.bossesSpawned++;
         e.xp = Math.round(250 * this.zone.difficulty);
         e.boss = { def, form: 0, enraged: false, patternTimer: 8, styleIndex: 0, styleTimer: def.styleTicks ?? 0, final, patternIndex: this.rng.int(def.patterns.length) };
         if (def.styleSwitch) e.style = def.styleSwitch[0];

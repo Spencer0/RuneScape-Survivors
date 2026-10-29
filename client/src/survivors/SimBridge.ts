@@ -16,8 +16,9 @@ export default class SimBridge {
     alive = 0;
     error: string | null = null;
     ready = false;
+    autoplay = false;
 
-    start(arena: ArenaData, db: GameDb, loadout: RunLoadout): void {
+    start(arena: ArenaData, db: GameDb, loadout: RunLoadout, bot?: string, endless?: boolean): void {
         this.stop();
         this.worker = new Worker(new URL('./simworker.js', import.meta.url), { type: 'module' });
         this.worker.onmessage = ev => {
@@ -38,7 +39,8 @@ export default class SimBridge {
         };
         this.waiting = true;
         this.cycle = 0;
-        this.worker.postMessage({ type: 'init', arena, db, loadout });
+        this.worker.postMessage({ type: 'init', arena, db, loadout, bot, endless });
+        this.autoplay = !!bot;
     }
 
     stop(): void {

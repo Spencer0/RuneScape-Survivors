@@ -104,27 +104,27 @@ export default class SurvivorsClient extends GameShell {
     private applyLogicalSize(): void {
         const vw = Math.max(200, window.innerWidth);
         const vh = Math.max(200, window.innerHeight);
+        // logical short side: the real screen's short side clamped to 360..503 CSS px, so phones
+        // render the RS fonts 1:1 and desktops get the classic 503px-tall frame
+        const short = Math.max(360, Math.min(503, Math.min(vw, vh)));
         let w: number;
         let h: number;
         if (vw >= vh) {
-            h = 503;
-            w = Math.round((503 * vw) / vh);
+            h = short;
+            w = Math.round((short * vw) / vh);
             if (w < 640) {
-                // squarer than 4:3 - keep at least 640 wide
                 w = 640;
                 h = Math.round((640 * vh) / vw);
             }
-            if (w > 1200) {
-                w = 1200;
-                h = Math.round((1200 * vh) / vw);
-            }
         } else {
-            w = 480;
-            h = Math.round((480 * vh) / vw);
-            if (h > 1040) {
-                h = 1040;
-                w = Math.round((1040 * vw) / vh);
-            }
+            w = short;
+            h = Math.round((short * vh) / vw);
+        }
+        const maxLong = 1200;
+        if (Math.max(w, h) > maxLong) {
+            const k = maxLong / Math.max(w, h);
+            w = Math.round(w * k);
+            h = Math.round(h * k);
         }
         if (this.frame && canvas.width === w && canvas.height === h) return;
         this.resize(w, h);
@@ -208,7 +208,7 @@ export default class SurvivorsClient extends GameShell {
         this.optionsOverlay = false;
         this.screen = 'run';
         this.ingame = true;
-        await this.runScreen.start(arena, loadout, validLook(p.appearance));
+        await this.runScreen.start(arena, loadout, validLook(p.appearance), this.params.get('bot') ?? undefined, this.params.get('endless') === '1');
     }
 
     private runOver(r: RunResults): void {
@@ -455,10 +455,27 @@ export default class SurvivorsClient extends GameShell {
             hud: this.runScreen.hud,
             levelUp: this.runScreen.levelUp,
             npcs: this.entities.npcCount,
+            telegraphs: this.runScreen.telegraphCount,
+            highlights: World.highlightCount,
             simMs: this.runScreen.bridge.lastTickMs,
             zoom: this.camera.zoom,
             talentXpMax: talentXpForPoint(30)
         };
+    }
+
+    debugTab(tab: string): void {
+        this.menu.tab = tab as never;
+    }
+
+    debugTalents(xp: number, ranks: Record<string, number>): void {
+        const cp = Save.profile.classes[Save.profile.lastClass];
+        cp.talentXp = xp;
+        for (const [id, r] of Object.entries(ranks)) cp.talents[id] = r;
+        void Save.write();
+    }
+
+    toggleFps(on: boolean): void {
+        Save.profile.options.showFps = on;
     }
 
     renderMs(): number {

@@ -1,0 +1,23 @@
+{
+  "name": "gielinor-survivors",
+  "private": true,
+  "type": "module",
+  "description": "Gielinor Survivors - a survivors-style roguelike on the Lost City (2004scape) web client. Local prototype.",
+  "scripts": {
+    "setup": "node tools/setup.mjs",
+    "extract": "tsx tools/extract.ts",
+    "build": "node tools/build.mjs",
+    "serve": "node tools/serve.mjs",
+    "sim": "tsx tools/sim.ts",
+    "typecheck": "tsc -p client/tsconfig.json --noEmit && tsc -p sim/tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "fflate": "^0.8.2"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0"
+  }
+}

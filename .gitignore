@@ -1,0 +1,7 @@
+node_modules/
+vendor/
+data/
+dist/
+*.log
+.DS_Store
+sim-out/

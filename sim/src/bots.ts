@@ -63,7 +63,16 @@ export class Bot {
         if (this.kind === 'dodger') {
             const impacts = sim.pendingImpacts();
             if (impacts.length > 0) {
-                const next = planDodge(sim.flags, sim.px, sim.pz, sim.tick, impacts);
+                const enemies = sim.enemyPositions();
+                const crowd = (x: number, z: number) => {
+                    let c = 0;
+                    for (const e of enemies) {
+                        const d = Math.max(Math.abs(e.x - x), Math.abs(e.z - z));
+                        if (d <= 2) c += e.boss ? 3 : 3 - d;
+                    }
+                    return c * 0.8;
+                };
+                const next = planDodge(sim.flags, sim.px, sim.pz, sim.tick, impacts, crowd);
                 if (sim.running) cmds.push({ type: 'run', on: false });
                 if (next >= 0 && next !== sim.px * SIZE + sim.pz) {
                     this.dodgeSteps++;
@@ -95,6 +104,8 @@ export class Bot {
         const enemies = sim.enemyPositions();
         const pickups = sim.pickupList();
         const caches = sim.cacheInfo().filter(c => !c.opened && c.cost <= sim.coins);
+        // leave guardians alone until strong enough to take them on
+        const lairs = sim.level >= 18 ? [] : sim.sleepingGuardians();
         let best = -1;
         let bestScore = -1e9;
         for (let i = 0; i < 40; i++) {
@@ -112,16 +123,18 @@ export class Bot {
                 const d = Math.max(Math.abs(p.x - x), Math.abs(p.z - z));
                 if (d < 6) score += (6 - d) * (p.kind === 'magnet' ? 8 : p.kind === 'food' ? 4 : 0.8);
             }
+            for (const g of lairs) {
+                const d = Math.max(Math.abs(g.x - x), Math.abs(g.z - z));
+                if (d < 7) score -= (7 - d) * 6;
+            }
             for (const c of caches) {
                 const d = Math.max(Math.abs(c.x - x), Math.abs(c.z - z));
                 score += Math.max(0, 20 - d) * 1.5;
             }
-            // keep away from the arena edge (fewer dead ends)
-            for (let k = 0; k < 4; k++) {
-                const ex = x + [3, -3, 0, 0][k];
-                const ez = z + [0, 0, 3, -3][k];
-                if (isBlocked(sim.flags, ex, ez)) score -= 2;
-            }
+            // prefer open ground: fewer dead ends to get cornered in
+            let open = 0;
+            for (let ox = -3; ox <= 3; ox++) for (let oz = -3; oz <= 3; oz++) if (!isBlocked(sim.flags, x + ox, z + oz)) open++;
+            score -= (49 - open) * 0.6;
             if (score > bestScore) {
                 bestScore = score;
                 best = x * SIZE + z;

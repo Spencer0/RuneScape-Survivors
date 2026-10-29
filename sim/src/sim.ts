@@ -60,6 +60,7 @@ type Enemy = {
     vulnTicks: number;
     undead: boolean;
     boss: BossState | null;
+    lair: { x: number; z: number } | null;
     lastHitBy: string;
     lastHitFamily: string;
     attackAnim: number;
@@ -120,6 +121,7 @@ export class Sim implements SimApi {
     damageTaken = 0;
     telegraphDamage = 0;
     telegraphHits = 0;
+    readonly damageBySource: Record<string, number> = {};
     readonly cards = new Map<string, CardInst>();
     readonly items: RunItemDef[] = [];
     private buffs: Buff[] = [];
@@ -232,6 +234,7 @@ export class Sim implements SimApi {
             const e = this.spawnEnemy(ENEMIES[g], (tile / SIZE) | 0, tile % SIZE, 1);
             if (e) {
                 e.sleeping = true;
+                e.lair = { x: e.x, z: e.z };
                 const add = this.npcAdds.find(a => a.slot === e.slot);
                 if (add) add.sleeping = true;
             }
@@ -699,6 +702,8 @@ export class Sim implements SimApi {
         const final = Math.max(1, Math.round(dmg));
         this.hp -= final;
         this.damageTaken += final;
+        const src = fromTelegraph ? 'telegraph' : source?.boss ? 'boss' : source && source.range > 1 ? 'horde-ranged' : 'horde-melee';
+        this.damageBySource[src] = (this.damageBySource[src] ?? 0) + final;
         if (fromTelegraph) {
             this.telegraphDamage += final;
             this.telegraphHits++;
@@ -866,12 +871,13 @@ export class Sim implements SimApi {
         if (boss) {
             const endlessScale = this.endless ? 1 + this.endlessIndex * 0.35 : 1;
             hp = Math.round(boss.hp * diff * endlessScale);
-            damage = Math.round(boss.damage * Math.pow(diff, 0.8) * endlessScale);
+            damage = Math.round(boss.damage * 0.6 * Math.pow(diff, 0.8) * endlessScale);
         } else {
             const hpScale = diff * (1 + 0.16 * minutes + 0.012 * minutes * minutes) * (this.endless ? 1.5 + this.endlessIndex * 0.25 : 1);
-            const dmgScale = Math.pow(diff, 0.8) * (1 + 0.075 * minutes) * (this.endless ? 1.3 + this.endlessIndex * 0.1 : 1);
+            const dmgScale = 0.65 * Math.pow(diff, 0.8) * (1 + 0.075 * minutes) * (this.endless ? 1.3 + this.endlessIndex * 0.1 : 1);
             hp = Math.round(def.hp * hpScale * (elite === 1 ? 9 : 1));
-            damage = Math.round(def.damage * dmgScale * (elite === 1 ? 1.8 : 1));
+            // ranged/magic attackers can't be kited out of range, so they hit softer
+            damage = Math.round(def.damage * dmgScale * (elite === 1 ? 1.25 : 1) * (def.range > 1 ? 0.6 : 1));
         }
 
         this.slotGen[slot]++;
@@ -888,7 +894,7 @@ export class Sim implements SimApi {
             hp,
             maxHp: hp,
             damage,
-            attackSpeed: boss ? boss.attackSpeed : def.attackSpeed,
+            attackSpeed: boss ? boss.attackSpeed + 1 : def.attackSpeed + (def.range > 1 ? 2 : 1),
             range: boss ? boss.range : def.range,
             style: boss ? boss.forms[0].style : def.style,
             speed: def.speed,
@@ -906,6 +912,7 @@ export class Sim implements SimApi {
             vulnTicks: 0,
             undead: !!def.undead,
             boss: null,
+            lair: null,
             lastHitBy: '',
             lastHitFamily: '',
             attackAnim,
@@ -942,6 +949,11 @@ export class Sim implements SimApi {
                 continue;
             }
             e.atkTimer--;
+            if (e.lair && Math.max(Math.abs(this.px - e.lair.x), Math.abs(this.pz - e.lair.z)) > 12) {
+                // guardians are optional: outrun them and they return to their lair and sleep
+                this.returnToLair(e, occ);
+                continue;
+            }
             const d = this.dist(e, this.px, this.pz);
             const range = e.boss ? this.bossRange(e) : e.range;
             if (d <= range && !this.dead) {
@@ -951,6 +963,7 @@ export class Sim implements SimApi {
             }
 
             let speed = e.speed;
+            if (e.boss && !e.boss.enraged && (this.tick & 1) === 1) continue; // bosses lumber; telegraphs are the threat
             if (e.slow > 0) {
                 e.slow--;
                 if ((this.tick & 1) === 0) continue;
@@ -961,6 +974,35 @@ export class Sim implements SimApi {
                 if (this.dist(e, this.px, this.pz) <= range) break;
             }
         }
+    }
+
+    private returnToLair(e: Enemy, occ: Uint16Array): void {
+        const lair = e.lair!;
+        if (e.x === lair.x && e.z === lair.z) {
+            e.sleeping = true;
+            e.hp = e.maxHp;
+            const u = this.upd(e.slot);
+            u.say = 'Zzz';
+            u.hp = e.hp;
+            return;
+        }
+        const dx = Math.sign(lair.x - e.x);
+        const dz = Math.sign(lair.z - e.z);
+        const ok = e.size === 1 ? canStep(this.flags, e.x, e.z, dx, dz) : canPlaceLarge(this.flags, e.x + dx, e.z + dz, e.size);
+        if (!ok) {
+            // no straight path home: teleport back (rarely needed)
+            this.npcMoves.push(e.slot, lair.x, lair.z, 0, 0, 0, 0);
+            occ[idx(e.x, e.z)]--;
+            e.x = lair.x;
+            e.z = lair.z;
+            occ[idx(e.x, e.z)]++;
+            return;
+        }
+        occ[idx(e.x, e.z)]--;
+        e.x += dx;
+        e.z += dz;
+        occ[idx(e.x, e.z)]++;
+        this.npcMoves.push(e.slot, e.x, e.z, 1, dirIndex(dx, dz), 0, 0);
     }
 
     private stepEnemy(e: Enemy, occ: Uint16Array): boolean {
@@ -1386,7 +1428,7 @@ export class Sim implements SimApi {
     targetAlive(): number {
         if (this.loadout.debugHorde) return this.loadout.debugHorde;
         const m = this.clock / TICKS_PER_MINUTE;
-        const base = 8 + 8.5 * m + 0.42 * m * m;
+        const base = 8 + 6.5 * m + 0.55 * m * m;
         return Math.min(this.endless ? 320 : 280, Math.round(base * (this.endless ? 1.3 : 1)));
     }
 
@@ -1836,7 +1878,11 @@ export class Sim implements SimApi {
     }
 
     enemyPositions(): { x: number; z: number; boss: boolean }[] {
-        return this.alive.filter(e => e.alive && !e.sleeping).map(e => ({ x: e.x, z: e.z, boss: e.elite === 2 }));
+        return this.alive.filter(e => e.alive && !e.sleeping).map(e => ({ x: e.x, z: e.z, boss: e.elite >= 1 }));
+    }
+
+    sleepingGuardians(): { x: number; z: number }[] {
+        return this.alive.filter(e => e.alive && e.sleeping).map(e => ({ x: e.x, z: e.z }));
     }
 
     get hasOffer(): boolean {

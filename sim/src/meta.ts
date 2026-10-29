@@ -134,7 +134,7 @@ export function computeTalentXp(r: RunResults, profile: Profile): number {
     const zone = ZONE_BY_ID[r.zoneId];
     const minutes = r.ticksSurvived / 100;
     let xp = minutes * 22 + r.kills * 0.35 + r.bossesKilled.length * 140 + (r.won ? 500 : 0) + r.guardiansKilled * 40;
-    xp *= zone?.difficulty ?? 1;
+    xp *= zone?.xpMult ?? 1;
     const best = Math.max(...Object.values(profile.classes).map(c => c.talentXp));
     const mine = profile.classes[r.classId as ClassId]?.talentXp ?? 0;
     if (best > 0 && mine < best * 0.25) xp *= 1.4;

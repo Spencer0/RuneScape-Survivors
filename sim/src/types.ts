@@ -68,7 +68,7 @@ export function baseStats(): Stats {
         duration: 0,
         xp: 0,
         coins: 0,
-        regen: 0,
+        regen: 1,
         dodge: 0,
         thorns: 0,
         burn: 0,

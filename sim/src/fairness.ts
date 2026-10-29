@@ -94,7 +94,7 @@ export function makeFair(flags: Int32Array, px: number, pz: number, now: number,
 
 // Perfect-dodger planning (used by the headless bot): a walking path that survives every impact.
 // Returns the tile to be on after the next tick, or -1 to stay put / no threat.
-export function planDodge(flags: Int32Array, px: number, pz: number, now: number, impacts: Impact[]): number {
+export function planDodge(flags: Int32Array, px: number, pz: number, now: number, impacts: Impact[], tileCost?: (x: number, z: number) => number): number {
     const future = impacts.filter(i => i.landTick > now);
     if (future.length === 0) return -1;
     const parents: Int32Array[] = [];
@@ -108,7 +108,7 @@ export function planDodge(flags: Int32Array, px: number, pz: number, now: number
         if (!last[i]) continue;
         const x = (i / SIZE) | 0;
         const z = i % SIZE;
-        const d = Math.max(Math.abs(x - px), Math.abs(z - pz));
+        const d = Math.max(Math.abs(x - px), Math.abs(z - pz)) + (tileCost ? tileCost(x, z) : 0);
         if (d < bestD) {
             bestD = d;
             best = i;

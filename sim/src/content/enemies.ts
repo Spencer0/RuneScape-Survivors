@@ -46,7 +46,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
     hobgoblin: { id: 'hobgoblin', npc: 'hobgoblin_unarmed', hp: 34, damage: 8, attackSpeed: 4, range: 1, style: 'melee', speed: 1, xp: 6 },
     hobgoblin_armed: { id: 'hobgoblin_armed', npc: 'hobgoblin_armed', hp: 48, damage: 11, attackSpeed: 5, range: 1, style: 'melee', speed: 1, xp: 8 },
     giant_bat: { id: 'giant_bat', npc: 'bat', hp: 30, damage: 7, attackSpeed: 4, range: 1, style: 'melee', speed: 2, xp: 6 },
-    chaos_druid: { id: 'chaos_druid', npc: 'chaos_druid', hp: 30, damage: 9, attackSpeed: 6, range: 6, style: 'magic', speed: 1, xp: 7, projectile: 'earthstrike_travel', impact: 'earthstrike_impact', attackAnim: 'human_caststrike', deathAnim: 'human_death' },
+    chaos_druid: { id: 'chaos_druid', npc: 'chaos_druid', hp: 30, damage: 7, attackSpeed: 6, range: 5, style: 'magic', speed: 1, xp: 7, projectile: 'earthstrike_travel', impact: 'earthstrike_impact', attackAnim: 'human_caststrike', deathAnim: 'human_death' },
     hill_giant: { id: 'hill_giant', npc: 'giant', hp: 70, damage: 14, attackSpeed: 6, range: 1, style: 'melee', speed: 1, xp: 14 },
     moss_giant: { id: 'moss_giant', npc: 'mossgiant', hp: 90, damage: 16, attackSpeed: 6, range: 1, style: 'melee', speed: 1, xp: 18 },
     deadly_spider: { id: 'deadly_spider', npc: 'deadly_red_spider', hp: 40, damage: 10, attackSpeed: 4, range: 1, style: 'melee', speed: 2, xp: 8 },
@@ -64,5 +64,5 @@ export const ENEMIES: Record<string, EnemyDef> = {
     hellhound: { id: 'hellhound', npc: 'hellhound', hp: 130, damage: 20, attackSpeed: 4, range: 1, style: 'melee', speed: 2, xp: 28 },
     green_dragon: { id: 'green_dragon', npc: 'green_dragon', hp: 200, damage: 26, attackSpeed: 5, range: 3, style: 'magic', speed: 1, xp: 45, projectile: 'firebreath_travel', impact: 'firebreath_attack' },
     black_demon: { id: 'black_demon', npc: 'black_demon', hp: 240, damage: 30, attackSpeed: 4, range: 1, style: 'melee', speed: 1, xp: 55 },
-    chaos_druid_w: { id: 'chaos_druid_w', npc: 'chaos_druid', hp: 50, damage: 13, attackSpeed: 6, range: 6, style: 'magic', speed: 1, xp: 10, projectile: 'earthbolt_travel', impact: 'earthbolt_impact', attackAnim: 'human_caststrike', deathAnim: 'human_death' }
+    chaos_druid_w: { id: 'chaos_druid_w', npc: 'chaos_druid', hp: 50, damage: 9, attackSpeed: 6, range: 5, style: 'magic', speed: 1, xp: 10, projectile: 'earthbolt_travel', impact: 'earthbolt_impact', attackAnim: 'human_caststrike', deathAnim: 'human_death' }
 };

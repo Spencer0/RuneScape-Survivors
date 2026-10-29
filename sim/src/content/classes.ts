@@ -80,6 +80,7 @@ export const CLASSES: Record<ClassId, ClassDef> = {
         base: s => {
             s.range += 1;
             s.energyRegen += 0.2;
+            s.maxHp += 10;
         },
         talents: [
             ...common('ranged'),
@@ -109,7 +110,9 @@ export const CLASSES: Record<ClassId, ClassDef> = {
         base: s => {
             s.cooldown += 0.05;
             s.xp += 0.05;
-            s.maxHp -= 10;
+            s.damage += 0.15;
+            s.armour += 0.04;
+            s.maxHp += 20;
         },
         talents: [
             ...common('magic'),

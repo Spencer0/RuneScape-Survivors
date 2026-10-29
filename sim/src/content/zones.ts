@@ -35,7 +35,8 @@ export type ZoneDef = {
     name: string;
     arena: string;
     flavour: string;
-    difficulty: number; // enemy HP/damage multiplier, talent XP multiplier
+    difficulty: number; // enemy HP/damage multiplier (on top of the tougher native roster)
+    xpMult: number; // talent XP multiplier
     order: number;
     unlockedBy: string | null; // previous zone id (its final boss)
     roster: RosterEntry[];
@@ -53,6 +54,7 @@ export const ZONES: ZoneDef[] = [
         arena: 'lumbridge',
         flavour: 'The Duke\'s castle is overrun. Hold the courtyard until Count Draynor rises.',
         difficulty: 1,
+        xpMult: 1,
         order: 0,
         unlockedBy: null,
         cacheCost: 60,
@@ -126,7 +128,8 @@ export const ZONES: ZoneDef[] = [
         name: 'Edgeville Dungeon',
         arena: 'edgeville_dungeon',
         flavour: 'Giants, the restless dead and worse lurk beneath Edgeville. Chronozon waits below.',
-        difficulty: 1.7,
+        difficulty: 1.15,
+        xpMult: 1.7,
         order: 1,
         unlockedBy: 'lumbridge',
         cacheCost: 110,
@@ -198,14 +201,17 @@ export const ZONES: ZoneDef[] = [
         name: 'Deep Wilderness',
         arena: 'wilderness',
         flavour: 'The Demonic Ruins. Demons, dragons and the King Black Dragon himself.',
-        difficulty: 2.6,
+        difficulty: 1.3,
+        xpMult: 2.5,
         order: 2,
         unlockedBy: 'edgeville_dungeon',
         cacheCost: 180,
         guardians: ['greater_demon', 'green_dragon', 'ice_giant', 'hellhound'],
         roster: [
-            { enemy: 'skeleton_armed', from: 0, to: 5, weight: 4 },
-            { enemy: 'dark_warrior', from: 0, to: 7, weight: 4 },
+            { enemy: 'skeleton', from: 0, to: 4, weight: 4 },
+            { enemy: 'ghost', from: 0, to: 5, weight: 3 },
+            { enemy: 'skeleton_armed', from: 2, to: 8, weight: 4 },
+            { enemy: 'dark_warrior', from: 1, to: 9, weight: 4 },
             { enemy: 'chaos_druid_w', from: 1, to: 12, weight: 2 },
             { enemy: 'ice_warrior', from: 2, to: 10, weight: 3 },
             { enemy: 'earth_warrior', from: 3, to: 12, weight: 3 },

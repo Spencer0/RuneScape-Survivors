@@ -266,7 +266,7 @@ const RANGED: AbilityDef[] = [
         desc: 'Rapid shots from your shortbow.',
         maxRank: 6,
         tags: ['projectile', 'ranged'],
-        params: r => ({ damage: at(r, [12, 15, 19, 23, 28, 34]), cooldown: at(r, [3, 3, 3, 2, 2, 2]), targets: at(r, [1, 1, 2, 2, 3, 3]), range: 8 }),
+        params: r => ({ damage: at(r, [14, 17, 21, 26, 31, 37]), cooldown: at(r, [3, 3, 3, 2, 2, 2]), targets: at(r, [1, 2, 2, 2, 3, 3]), range: 8 }),
         cast(ctx, p) {
             const t = ctx.targets('nearest', reach(ctx, p.range), p.targets + ctx.stats.projectiles);
             if (t.length === 0) return false;
@@ -465,7 +465,7 @@ const MAGIC: AbilityDef[] = [
         desc: 'The first spell every wizard learns. Grows into Wind Bolt, Blast and Wave as it ranks up.',
         maxRank: 6,
         tags: ['magic', 'projectile'],
-        params: r => ({ damage: at(r, [14, 18, 23, 29, 36, 44]), cooldown: at(r, [4, 4, 3, 3, 3, 3]), targets: at(r, [1, 1, 1, 2, 2, 3]), range: 8 }),
+        params: r => ({ damage: at(r, [17, 21, 26, 32, 39, 47]), cooldown: at(r, [3, 3, 3, 3, 2, 2]), targets: at(r, [1, 2, 2, 2, 3, 3]), range: 8 }),
         cast(ctx, p, rank) {
             const t = ctx.targets('nearest', reach(ctx, p.range), p.targets + Math.floor(ctx.stats.projectiles / 2));
             if (t.length === 0) return false;

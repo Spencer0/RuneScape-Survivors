@@ -179,4 +179,6 @@ export type GameJson = {
     midis: Record<string, number>;
     synths: Record<string, number>;
     idks: Record<string, number>;
+    wear: Record<string, number[]>;
+    npcs: Record<string, { id: number; name: string; size: number; attackAnim: number; defendAnim: number; deathAnim: number; walkAnim: number; readyAnim: number; hitpoints: number; vislevel: number }>;
 };

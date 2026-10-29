@@ -107,6 +107,7 @@ export type RunLoadout = {
     appearance: number[];
     bossTimes?: number[]; // ticks; default 3/6/9/12/16 min
     debugMaxTalents?: boolean;
+    debugHorde?: number; // force the horde size (perf testing)
 };
 
 export const TICKS_PER_MINUTE = 100; // 600 ms ticks

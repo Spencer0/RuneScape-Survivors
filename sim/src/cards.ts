@@ -135,7 +135,17 @@ export function describeOffer(offer: Offer, owned: Map<string, CardInst>, cooldo
             else if (a !== b) lines.push(`Speed ${b} -> ${a} ticks`);
             continue;
         }
-        const name = def.kind === 'passive' && (key === 'pct' || key === 'flat') ? def.name : label(key);
+        const passiveLabel = def.kind === 'passive' ? def.labels?.[key] : undefined;
+        if (passiveLabel) {
+            const unit = key === 'flat' || key === 'poison' ? '' : '%';
+            // "Armour +4% -> +8%" (labels end with the sign so negative-style stats read naturally)
+            const sign = /[+-]$/.test(passiveLabel) ? passiveLabel.slice(-1) : '';
+            const name = sign ? passiveLabel.slice(0, -1).trim() : passiveLabel;
+            const f = (v: number) => `${sign}${v}${unit}`;
+            lines.push(pb ? `${name} ${f(pb[key])} -> ${f(pa[key])}` : `${name} ${f(pa[key])}`);
+            continue;
+        }
+        const name = label(key);
         if (!pb) {
             lines.push(`${name} ${fmt(key, pa[key])}`);
         } else if (pb[key] !== pa[key]) {
@@ -148,7 +158,7 @@ export function describeOffer(offer: Offer, owned: Map<string, CardInst>, cooldo
     if (!inst && def.targeting) {
         lines.push(`Target: ${def.targeting}`);
     }
-    if (lines.length === 0) {
+    if (def.kind === 'passive' || lines.length === 0) {
         lines.push(def.desc);
     }
 

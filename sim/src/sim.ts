@@ -1197,7 +1197,11 @@ export class Sim implements SimApi {
             for (let z = this.pz - r; z <= this.pz + r; z++) {
                 const list = this.pickupAt.get(idx(x, z));
                 if (!list) continue;
-                for (const uid of [...list]) this.collect(this.pickups.get(uid)!);
+                for (const uid of [...list]) {
+                    // a magnet collected earlier in this loop may already have taken it
+                    const p = this.pickups.get(uid);
+                    if (p) this.collect(p);
+                }
             }
         }
     }
@@ -1218,7 +1222,7 @@ export class Sim implements SimApi {
             case 'magnet':
                 this.event({ type: 'message', text: 'The magnet pulls in every orb!', colour: 0x00ffff });
                 this.playerSpot(this.spot('telegrab_casting'));
-                for (const q of [...this.pickups.values()]) if (q.kind === 'xp') this.collect(q);
+                for (const q of [...this.pickups.values()]) if (q.kind === 'xp' && this.pickups.has(q.uid)) this.collect(q);
                 break;
             case 'item':
                 break;
@@ -1239,7 +1243,7 @@ export class Sim implements SimApi {
 
     xpNext(): number {
         const L = this.level;
-        return Math.round(6 + 5 * L + 0.42 * L * L);
+        return Math.round(5 + 3 * L + 0.3 * L * L);
     }
 
     private grantItem(x: number, z: number, rarityBoost: number): void {
@@ -1322,8 +1326,8 @@ export class Sim implements SimApi {
         const list = this.pickupAt.get(idx(this.petPos.x, this.petPos.z));
         if (list) {
             for (const uid of [...list]) {
-                const p = this.pickups.get(uid)!;
-                if (p.kind === 'xp' || p.kind === 'coins') this.collect(p);
+                const p = this.pickups.get(uid);
+                if (p && (p.kind === 'xp' || p.kind === 'coins')) this.collect(p);
             }
         }
     }
@@ -1380,6 +1384,7 @@ export class Sim implements SimApi {
     // =============================================================================================
 
     targetAlive(): number {
+        if (this.loadout.debugHorde) return this.loadout.debugHorde;
         const m = this.clock / TICKS_PER_MINUTE;
         const base = 8 + 8.5 * m + 0.42 * m * m;
         return Math.min(this.endless ? 320 : 280, Math.round(base * (this.endless ? 1.3 : 1)));
@@ -1394,7 +1399,7 @@ export class Sim implements SimApi {
         const roster = this.zone.roster.filter(r => minutes >= r.from && minutes < r.to);
         if (roster.length === 0) return;
         const ring = this.arena.data.spawnRing;
-        const toSpawn = Math.min(want - horde, 3 + Math.floor(minutes / 2));
+        const toSpawn = Math.min(want - horde, this.loadout.debugHorde ? 40 : 3 + Math.floor(minutes / 2));
         for (let i = 0; i < toSpawn; i++) {
             const entry = this.rng.weighted(roster, r => r.weight);
             const def = ENEMIES[entry.enemy];

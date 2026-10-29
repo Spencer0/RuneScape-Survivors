@@ -120,6 +120,15 @@ export default class Gfx {
         Pix2D.vline(x + w - 1, y, h, COL.BROWN_LIGHT);
     }
 
+    // thin 2px brown bevel used around HUD boxes (like the chatbox / minimap edges)
+    static steelFrameThin(x: number, y: number, w: number, h: number): void {
+        Pix2D.drawRect(x, y, w, h, 0x000000);
+        Pix2D.hline(x + 1, y + 1, w - 2, COL.BROWN_LIGHT);
+        Pix2D.vline(x + 1, y + 1, h - 2, COL.BROWN_LIGHT);
+        Pix2D.hline(x + 1, y + h - 2, w - 2, COL.BROWN_LOW);
+        Pix2D.vline(x + w - 2, y + 1, h - 2, COL.BROWN_LOW);
+    }
+
     static steelFrame(x: number, y: number, w: number, h: number): void {
         const corners: (Pix32 | null)[] = [0, 1, 2, 3].map(i => Assets.pix32('steelborder', i));
         const hedge = Assets.pix32('steelborder2', 0);
@@ -161,11 +170,12 @@ export default class Gfx {
             const yOff = y + (((h - sh) / 2) | 0);
             this.clip(x, y, x + edge, y + h, () => sprite.plotSprite(x, yOff));
             this.clip(x + w - edge, y, x + w, y + h, () => sprite.plotSprite(x + w - sw, yOff));
-            this.clip(x + edge, y, x + w - edge, y + h, () => {
-                for (let tx = x + edge - 10; tx < x + w - edge; tx += sw - 24) {
-                    sprite.plotSprite(tx, yOff);
-                }
-            });
+            // middle: repeat only the sprite's interior columns so no inner border shows through
+            const inner = sw - edge * 2;
+            for (let tx = x + edge; tx < x + w - edge; tx += inner) {
+                const end = Math.min(tx + inner, x + w - edge);
+                this.clip(tx, y, end, y + h, () => sprite.plotSprite(tx - edge, yOff));
+            }
         } else {
             Pix2D.fillRect(x, y, w, h, active ? 0x7a1f12 : 0x5a5246);
         }

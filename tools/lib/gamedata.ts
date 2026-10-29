@@ -36,7 +36,10 @@ export type GameData = {
     midis: Record<string, number>;
     synths: Record<string, number>;
     idks: Record<string, number>;
+    wear: Record<string, number[]>; // obj debug name -> [wearpos, wearpos2, wearpos3] slot ids (-1 none)
 };
+
+const WEARPOS: Record<string, number> = { hat: 0, back: 1, front: 2, righthand: 3, torso: 4, lefthand: 5, arms: 6, legs: 7, head: 8, hands: 9, feet: 10, jaw: 11, ring: 12, quiver: 13 };
 
 function readPack(file: string): Record<string, number> {
     const out: Record<string, number> = {};
@@ -191,5 +194,19 @@ export function extractGameData(contentDir: string, _cache: CacheReader): GameDa
         };
     }
 
-    return { npcs, seqs, spotanims, locs, objs, midis, synths, idks };
+    // wear positions for every wearable obj (Player.generateAppearance hides wearpos2/3 slots)
+    const objConfigs = parseConfigs(walk(path.join(contentDir, 'scripts'), '.obj'));
+    for (const rev of ['274', '254', '244', '225']) {
+        const dump = path.join(contentDir, 'scripts/_unpack', rev, 'all.obj');
+        if (!fs.existsSync(dump)) continue;
+        for (const [name, props] of parseConfigs([dump])) if (!objConfigs.has(name)) objConfigs.set(name, props);
+    }
+    const wear: Record<string, number[]> = {};
+    for (const [name, props] of objConfigs) {
+        const w = props.get('wearpos')?.[0];
+        if (!w || objs[name] === undefined) continue;
+        wear[name] = [WEARPOS[w] ?? -1, WEARPOS[props.get('wearpos2')?.[0] ?? ''] ?? -1, WEARPOS[props.get('wearpos3')?.[0] ?? ''] ?? -1];
+    }
+
+    return { npcs, seqs, spotanims, locs, objs, midis, synths, idks, wear };
 }

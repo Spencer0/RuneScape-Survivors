@@ -19,6 +19,7 @@ export type AbilityDef = {
     cast?: (ctx: SimApi, p: Params, rank: number) => boolean;
     apply?: (s: Stats, p: Params) => void;
     tags: string[];
+    labels?: Record<string, string>; // per-param stat names for passive cards
     refs?: { seqs?: string[]; spots?: string[]; objs?: string[]; locs?: string[] };
 };
 
@@ -798,7 +799,7 @@ const SKILLS: AbilityDef[] = [
     },
     {
         id: 'pyromancer', name: 'Pyromancer', family: 'firemaking', kind: 'passive', icon: ['staticons', 16], maxRank: 5,
-        desc: 'All fire damage increased.', tags: [],
+        desc: 'All fire damage increased.', labels: { pct: 'Fire damage +' }, tags: [],
         params: r => ({ pct: pct5(r, [10, 15, 20, 26, 33]) }),
         apply: (s, p) => (s.burn += p.pct / 100)
     },
@@ -820,13 +821,13 @@ const SKILLS: AbilityDef[] = [
     },
     {
         id: 'gold_rush', name: 'Gold Rush', family: 'mining', kind: 'passive', icon: ['staticons', 12], maxRank: 5,
-        desc: 'Enemies drop more coins.', tags: [],
+        desc: 'Enemies drop more coins.', labels: { pct: 'Coins +' }, tags: [],
         params: r => ({ pct: pct5(r, [15, 22, 30, 40, 50]) }),
         apply: (s, p) => (s.coins += p.pct / 100)
     },
     {
         id: 'rock_skin', name: 'Rock Skin', family: 'mining', kind: 'passive', icon: ['prayeron', 3], maxRank: 5,
-        desc: 'Skin as hard as granite.', tags: [],
+        desc: 'Skin as hard as granite.', labels: { pct: 'Armour +' }, tags: [],
         params: r => ({ pct: pct5(r, [4, 6, 8, 10, 12]) }),
         apply: (s, p) => (s.armour += p.pct / 100)
     },
@@ -863,7 +864,7 @@ const SKILLS: AbilityDef[] = [
     },
     {
         id: 'lumberjack', name: 'Lumberjack', family: 'woodcutting', kind: 'passive', icon: ['staticons', 17], maxRank: 5,
-        desc: 'Bigger they are, harder they fall: more damage to bosses and elites.', tags: [],
+        desc: 'Bigger they are, harder they fall: more damage to bosses and elites.', labels: { pct: 'Damage vs bosses/elites +' }, tags: [],
         params: r => ({ pct: pct5(r, [12, 18, 25, 33, 42]) }),
         apply: (s, p) => (s.bossDamage += p.pct / 100)
     },
@@ -901,14 +902,14 @@ const SKILLS: AbilityDef[] = [
     },
     {
         id: 'fresh_catch', name: 'Fresh Catch', family: 'fishing', kind: 'passive', icon: ['staticons', 14], maxRank: 5,
-        desc: 'Heal a share of your max HP every time you level up.', tags: [],
+        desc: 'Heal a share of your max HP every time you level up.', labels: { pct: 'Heal on level-up' }, tags: [],
         params: r => ({ pct: pct5(r, [10, 14, 18, 23, 28]) }),
         apply: (s, p) => (s.healOnLevel += p.pct / 100)
     },
     // --- Fletching ---
     {
         id: 'multishot', name: 'Multishot', family: 'fletching', kind: 'passive', icon: ['staticons', 11], maxRank: 5,
-        desc: 'Projectile abilities fire extra projectiles.', tags: [],
+        desc: 'Projectile abilities fire extra projectiles.', labels: { flat: 'Extra projectiles +' }, tags: [],
         params: r => ({ flat: pct5(r, [1, 1, 2, 2, 3]) }),
         apply: (s, p) => (s.projectiles += p.flat)
     },
@@ -927,52 +928,52 @@ const SKILLS: AbilityDef[] = [
     },
     {
         id: 'feathering', name: 'Feathering', family: 'fletching', kind: 'passive', icon: ['staticons', 11], maxRank: 5,
-        desc: 'Better fletched projectiles fly further.', tags: [],
+        desc: 'Better fletched projectiles fly further.', labels: { flat: 'Projectile range +', pct: 'Damage +' }, tags: [],
         params: r => ({ flat: pct5(r, [1, 1, 2, 2, 3]), pct: pct5(r, [5, 8, 10, 13, 16]) }),
         apply: (s, p) => { s.range += p.flat; s.damage += p.pct / 100; }
     },
     // --- Agility ---
     {
         id: 'shortcut', name: 'Shortcut', family: 'agility', kind: 'passive', icon: ['staticons', 7], maxRank: 5,
-        desc: 'Running drains less energy.', tags: [],
+        desc: 'Running drains less energy.', labels: { pct: 'Run energy drain -' }, tags: [],
         params: r => ({ pct: pct5(r, [12, 18, 25, 32, 40]) }),
         apply: (s, p) => (s.energyDrain += p.pct / 100)
     },
     {
         id: 'second_wind', name: 'Second Wind', family: 'agility', kind: 'passive', icon: ['staticons', 7], maxRank: 5,
-        desc: 'Run energy recovers faster.', tags: [],
+        desc: 'Run energy recovers faster.', labels: { pct: 'Run energy regen +' }, tags: [],
         params: r => ({ pct: pct5(r, [30, 45, 60, 80, 100]) }),
         apply: (s, p) => (s.energyRegen += p.pct / 100)
     },
     {
         id: 'nimble', name: 'Nimble', family: 'agility', kind: 'passive', icon: ['staticons', 7], maxRank: 5,
-        desc: 'A chance to dodge enemy attacks entirely.', tags: [],
+        desc: 'A chance to dodge enemy attacks entirely.', labels: { chance: 'Dodge chance' }, tags: [],
         params: r => ({ chance: pct5(r, [4, 6, 8, 10, 12]) }),
         apply: (s, p) => (s.dodge += p.chance / 100)
     },
     // --- Thieving ---
     {
         id: 'pickpocket', name: 'Pickpocket', family: 'thieving', kind: 'passive', icon: ['staticons', 9], maxRank: 5,
-        desc: 'Lift extra coins from everything you kill.', tags: [],
+        desc: 'Lift extra coins from everything you kill.', labels: { pct: 'Coins +', chance: 'Coin drop chance +' }, tags: [],
         params: r => ({ pct: pct5(r, [15, 22, 30, 40, 50]), chance: pct5(r, [4, 6, 8, 10, 12]) }),
         apply: (s, p) => { s.coins += p.pct / 100; s.coinOnKill += p.chance / 100; }
     },
     {
         id: 'lucky', name: 'Lucky', family: 'thieving', kind: 'passive', icon: ['staticons', 9], maxRank: 5,
-        desc: 'Fortune favours you: rarer level-up cards.', tags: [],
+        desc: 'Fortune favours you: rarer level-up cards.', labels: { pct: 'Luck +' }, tags: [],
         params: r => ({ pct: pct5(r, [15, 22, 30, 40, 50]) }),
         apply: (s, p) => (s.luck += p.pct / 100)
     },
     {
         id: 'backstab', name: 'Backstab', family: 'thieving', kind: 'passive', icon: ['staticons', 9], maxRank: 5,
-        desc: 'Critical hits are more likely.', tags: [],
+        desc: 'Critical hits are more likely.', labels: { chance: 'Crit chance +' }, tags: [],
         params: r => ({ chance: pct5(r, [4, 6, 8, 10, 13]) }),
         apply: (s, p) => (s.crit += p.chance / 100)
     },
     // --- Cooking ---
     {
         id: 'hearty_stew', name: 'Hearty Stew', family: 'cooking', kind: 'passive', icon: ['staticons', 15], maxRank: 5,
-        desc: 'A good meal makes you tougher.', tags: [],
+        desc: 'A good meal makes you tougher.', labels: { flat: 'Max HP +' }, tags: [],
         params: r => ({ flat: pct5(r, [15, 22, 30, 40, 50]) }),
         apply: (s, p) => (s.maxHp += p.flat)
     },
@@ -989,7 +990,7 @@ const SKILLS: AbilityDef[] = [
     },
     {
         id: 'food_drops', name: 'Food Drops', family: 'cooking', kind: 'passive', icon: ['staticons', 15], maxRank: 5,
-        desc: 'Enemies sometimes drop food that heals you.', tags: [],
+        desc: 'Enemies sometimes drop food that heals you.', labels: { chance: 'Food drop chance' }, tags: [],
         params: r => ({ chance: pct5(r, [2, 3, 4, 5, 6]) }),
         apply: (s, p) => (s.foodDrop += p.chance / 100),
         refs: { objs: ['shark', 'lobster', 'meat_pizza'] }
@@ -997,45 +998,45 @@ const SKILLS: AbilityDef[] = [
     // --- Herblore ---
     {
         id: 'attack_potion', name: 'Attack Potion', family: 'herblore', kind: 'passive', icon: ['staticons', 8], maxRank: 5,
-        desc: 'All damage increased.', tags: [],
+        desc: 'All damage increased.', labels: { pct: 'Damage +' }, tags: [],
         params: r => ({ pct: pct5(r, [6, 9, 12, 16, 20]) }),
         apply: (s, p) => (s.damage += p.pct / 100)
     },
     {
         id: 'weapon_poison', name: 'Weapon Poison', family: 'herblore', kind: 'passive', icon: ['staticons', 8], maxRank: 5,
-        desc: 'Your hits poison enemies for 5 ticks.', tags: [],
+        desc: 'Your hits poison enemies for 5 ticks.', labels: { poison: 'Poison per tick' }, tags: [],
         params: r => ({ poison: pct5(r, [1, 2, 3, 4, 5]) }),
         apply: (s, p) => (s.poison += p.poison)
     },
     {
         id: 'super_restore', name: 'Super Restore', family: 'herblore', kind: 'passive', icon: ['staticons', 8], maxRank: 5,
-        desc: 'Abilities recover faster.', tags: [],
+        desc: 'Abilities recover faster.', labels: { pct: 'Cooldowns -' }, tags: [],
         params: r => ({ pct: pct5(r, [5, 7, 9, 12, 15]) }),
         apply: (s, p) => (s.cooldown += p.pct / 100)
     },
     // --- Prayer (protection auras; counter boss attack styles) ---
     {
         id: 'protect_melee', name: 'Protect from Melee', family: 'prayer', kind: 'passive', icon: ['prayeron', 14], maxRank: 5,
-        desc: 'Reduces melee damage taken.', tags: [],
+        desc: 'Reduces melee damage taken.', labels: { reduce: 'Melee damage taken -' }, tags: [],
         params: r => ({ reduce: pct5(r, [20, 30, 40, 50, 60]) }),
         apply: (s, p) => (s.protectMelee += p.reduce / 100)
     },
     {
         id: 'protect_missiles', name: 'Protect from Missiles', family: 'prayer', kind: 'passive', icon: ['prayeron', 13], maxRank: 5,
-        desc: 'Reduces ranged damage taken.', tags: [],
+        desc: 'Reduces ranged damage taken.', labels: { reduce: 'Ranged damage taken -' }, tags: [],
         params: r => ({ reduce: pct5(r, [20, 30, 40, 50, 60]) }),
         apply: (s, p) => (s.protectRanged += p.reduce / 100)
     },
     {
         id: 'protect_magic', name: 'Protect from Magic', family: 'prayer', kind: 'passive', icon: ['prayeron', 12], maxRank: 5,
-        desc: 'Reduces magic damage taken.', tags: [],
+        desc: 'Reduces magic damage taken.', labels: { reduce: 'Magic damage taken -' }, tags: [],
         params: r => ({ reduce: pct5(r, [20, 30, 40, 50, 60]) }),
         apply: (s, p) => (s.protectMagic += p.reduce / 100)
     },
     // --- Smithing ---
     {
         id: 'plating', name: 'Plating', family: 'smithing', kind: 'passive', icon: ['staticons', 13], maxRank: 5,
-        desc: 'Smith extra armour plates.', tags: [],
+        desc: 'Smith extra armour plates.', labels: { pct: 'Armour +' }, tags: [],
         params: r => ({ pct: pct5(r, [4, 6, 8, 10, 12]) }),
         apply: (s, p) => (s.armour += p.pct / 100)
     },
@@ -1054,26 +1055,26 @@ const SKILLS: AbilityDef[] = [
     },
     {
         id: 'spiked_plate', name: 'Spiked Plate', family: 'smithing', kind: 'passive', icon: ['staticons', 13], maxRank: 5,
-        desc: 'Reflect part of the damage you take.', tags: [],
+        desc: 'Reflect part of the damage you take.', labels: { pct: 'Damage reflected' }, tags: [],
         params: r => ({ pct: pct5(r, [10, 15, 20, 26, 33]) }),
         apply: (s, p) => (s.thorns += p.pct / 100)
     },
     // --- Crafting ---
     {
         id: 'jeweller', name: 'Jeweller', family: 'crafting', kind: 'passive', icon: ['staticons', 10], maxRank: 5,
-        desc: 'Guardians and caches drop more and better jewellery.', tags: [],
+        desc: 'Guardians and caches drop more and better jewellery.', labels: { pct: 'Item find +' }, tags: [],
         params: r => ({ pct: pct5(r, [20, 30, 40, 55, 70]) }),
         apply: (s, p) => (s.itemFind += p.pct / 100)
     },
     {
         id: 'gem_cutter', name: 'Gem Cutter', family: 'crafting', kind: 'passive', icon: ['staticons', 10], maxRank: 5,
-        desc: 'Critical hits deal more damage.', tags: [],
+        desc: 'Critical hits deal more damage.', labels: { pct: 'Crit damage +' }, tags: [],
         params: r => ({ pct: pct5(r, [15, 22, 30, 40, 50]) }),
         apply: (s, p) => (s.critMult += p.pct / 100)
     },
     {
         id: 'amulet_stringing', name: 'Amulet Stringing', family: 'crafting', kind: 'passive', icon: ['staticons', 10], maxRank: 5,
-        desc: 'A lucky charm: luck and item find.', tags: [],
+        desc: 'A lucky charm: luck and item find.', labels: { pct: 'Luck +' }, tags: [],
         params: r => ({ pct: pct5(r, [8, 12, 16, 21, 27]) }),
         apply: (s, p) => { s.luck += p.pct / 100; s.itemFind += p.pct / 200; }
     },
@@ -1093,7 +1094,7 @@ const SKILLS: AbilityDef[] = [
     },
     {
         id: 'essence_flow', name: 'Essence Flow', family: 'runecrafting', kind: 'passive', icon: ['staticons2', 0], maxRank: 5,
-        desc: 'Gain more run XP from orbs.', tags: [],
+        desc: 'Gain more run XP from orbs.', labels: { pct: 'Run XP +' }, tags: [],
         params: r => ({ pct: pct5(r, [8, 12, 16, 21, 27]) }),
         apply: (s, p) => (s.xp += p.pct / 100)
     },
@@ -1119,16 +1120,16 @@ const SKILLS: AbilityDef[] = [
 // ------------------------------------------------------------------------------------------------
 
 export const PASSIVES: AbilityDef[] = [
-    { id: 'might', name: 'Might', family: 'passive', kind: 'passive', icon: ['staticons', 1], maxRank: 5, desc: 'All damage increased.', tags: [], params: () => ({ pct: 8 }), apply: (s, p) => (s.damage += p.pct / 100) },
-    { id: 'haste', name: 'Haste', family: 'passive', kind: 'passive', icon: ['prayeron', 5], maxRank: 5, desc: 'Ability cooldowns reduced (rounded to whole ticks).', tags: [], params: () => ({ pct: 6 }), apply: (s, p) => (s.cooldown += p.pct / 100) },
-    { id: 'reach', name: 'Reach', family: 'passive', kind: 'passive', icon: ['prayeron', 2], maxRank: 5, desc: 'Area of effect increased.', tags: [], params: () => ({ pct: 10 }), apply: (s, p) => (s.area += p.pct / 100) },
-    { id: 'vigour', name: 'Vigour', family: 'passive', kind: 'passive', icon: ['staticons', 6], maxRank: 5, desc: 'Max HP increased.', tags: [], params: () => ({ flat: 15 }), apply: (s, p) => (s.maxHp += p.flat) },
-    { id: 'guard', name: 'Guard', family: 'passive', kind: 'passive', icon: ['staticons', 2], maxRank: 5, desc: 'Armour increased (caps at 60%).', tags: [], params: () => ({ pct: 4 }), apply: (s, p) => (s.armour += p.pct / 100) },
-    { id: 'magnetism', name: 'Magnetism', family: 'passive', kind: 'passive', icon: ['magicon', 16], maxRank: 5, desc: 'Pickup range increased.', tags: [], params: () => ({ flat: 1 }), apply: (s, p) => (s.pickup += p.flat) },
-    { id: 'fortune', name: 'Fortune', family: 'passive', kind: 'passive', icon: ['staticons', 9], maxRank: 5, desc: 'Luck increased: better card rarities.', tags: [], params: () => ({ pct: 12 }), apply: (s, p) => (s.luck += p.pct / 100) },
-    { id: 'stamina', name: 'Stamina', family: 'passive', kind: 'passive', icon: ['staticons', 7], maxRank: 5, desc: 'Run energy drains slower and recovers faster.', tags: [], params: () => ({ pct: 12 }), apply: (s, p) => { s.energyDrain += p.pct / 100; s.energyRegen += p.pct / 50; } },
-    { id: 'precision', name: 'Precision', family: 'passive', kind: 'passive', icon: ['staticons', 0], maxRank: 5, desc: 'Critical hit chance increased.', tags: [], params: () => ({ pct: 4 }), apply: (s, p) => (s.crit += p.pct / 100) },
-    { id: 'wisdom', name: 'Wisdom', family: 'passive', kind: 'passive', icon: ['staticons', 5], maxRank: 5, desc: 'More run XP from orbs.', tags: [], params: () => ({ pct: 8 }), apply: (s, p) => (s.xp += p.pct / 100) }
+    { id: 'might', name: 'Might', family: 'passive', kind: 'passive', icon: ['staticons', 1], maxRank: 5, desc: 'All damage increased.', labels: { pct: 'Damage +' }, tags: [], params: () => ({ pct: 8 }), apply: (s, p) => (s.damage += p.pct / 100) },
+    { id: 'haste', name: 'Haste', family: 'passive', kind: 'passive', icon: ['prayeron', 5], maxRank: 5, desc: 'Ability cooldowns reduced (rounded to whole ticks).', labels: { pct: 'Cooldowns -' }, tags: [], params: () => ({ pct: 6 }), apply: (s, p) => (s.cooldown += p.pct / 100) },
+    { id: 'reach', name: 'Reach', family: 'passive', kind: 'passive', icon: ['prayeron', 2], maxRank: 5, desc: 'Area of effect increased.', labels: { pct: 'Area +' }, tags: [], params: () => ({ pct: 10 }), apply: (s, p) => (s.area += p.pct / 100) },
+    { id: 'vigour', name: 'Vigour', family: 'passive', kind: 'passive', icon: ['staticons', 6], maxRank: 5, desc: 'Max HP increased.', labels: { flat: 'Max HP +' }, tags: [], params: () => ({ flat: 15 }), apply: (s, p) => (s.maxHp += p.flat) },
+    { id: 'guard', name: 'Guard', family: 'passive', kind: 'passive', icon: ['staticons', 2], maxRank: 5, desc: 'Armour increased (caps at 60%).', labels: { pct: 'Armour +' }, tags: [], params: () => ({ pct: 4 }), apply: (s, p) => (s.armour += p.pct / 100) },
+    { id: 'magnetism', name: 'Magnetism', family: 'passive', kind: 'passive', icon: ['magicon', 16], maxRank: 5, desc: 'Pickup range increased.', labels: { flat: 'Pickup range +' }, tags: [], params: () => ({ flat: 1 }), apply: (s, p) => (s.pickup += p.flat) },
+    { id: 'fortune', name: 'Fortune', family: 'passive', kind: 'passive', icon: ['staticons', 9], maxRank: 5, desc: 'Luck increased: better card rarities.', labels: { pct: 'Luck +' }, tags: [], params: () => ({ pct: 12 }), apply: (s, p) => (s.luck += p.pct / 100) },
+    { id: 'stamina', name: 'Stamina', family: 'passive', kind: 'passive', icon: ['staticons', 7], maxRank: 5, desc: 'Run energy drains slower and recovers faster.', labels: { pct: 'Run energy drain -' }, tags: [], params: () => ({ pct: 12 }), apply: (s, p) => { s.energyDrain += p.pct / 100; s.energyRegen += p.pct / 50; } },
+    { id: 'precision', name: 'Precision', family: 'passive', kind: 'passive', icon: ['staticons', 0], maxRank: 5, desc: 'Critical hit chance increased.', labels: { pct: 'Crit chance +' }, tags: [], params: () => ({ pct: 4 }), apply: (s, p) => (s.crit += p.pct / 100) },
+    { id: 'wisdom', name: 'Wisdom', family: 'passive', kind: 'passive', icon: ['staticons', 5], maxRank: 5, desc: 'More run XP from orbs.', labels: { pct: 'Run XP +' }, tags: [], params: () => ({ pct: 8 }), apply: (s, p) => (s.xp += p.pct / 100) }
 ];
 
 export const CLASS_POOLS: Record<string, AbilityDef[]> = { melee: MELEE, ranged: RANGED, magic: MAGIC };

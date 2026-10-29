@@ -2,6 +2,7 @@ import { playWave, setWaveVolume } from '#3rdparty/audio.js';
 import { stopMidi, setMidiVolume, playMidi } from '#3rdparty/tinymidipcm.js';
 
 import ClientBuild from '#/client/ClientBuild.js';
+import { Cycle } from '#/client/Cycle.js';
 import { ClientCode } from '#/client/ClientCode.js';
 import GameShell from '#/client/GameShell.js';
 import { MiniMenuAction } from '#/client/MiniMenuAction.js';
@@ -112,8 +113,19 @@ export class Client extends GameShell {
     static oplogic9: number = 0;
     static oplogic10: number = 0;
 
-    static loopCycle: number = 0;
-    static drawCycle: number = 0;
+    // survivors: backed by the shared Cycle module (see client/Cycle.ts)
+    static get loopCycle(): number {
+        return Cycle.loop;
+    }
+    static set loopCycle(value: number) {
+        Cycle.loop = value;
+    }
+    static get drawCycle(): number {
+        return Cycle.draw;
+    }
+    static set drawCycle(value: number) {
+        Cycle.draw = value;
+    }
 
     static CHARSET: string = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!\"£$%^&*()-_=+[{]};:'@#~,<.>/?\\| ";
 

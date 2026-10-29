@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gielinor Survivors</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+    html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+    body { display: flex; align-items: center; justify-content: center; }
+    /* the canvas is the whole game: the 765x503 RS frame, scaled to fit the window */
+    #canvas { display: block; image-rendering: pixelated; outline: none; touch-action: none; }
+</style>
+</head>
+<body>
+<canvas id="canvas" width="765" height="503" tabindex="-1"></canvas>
+<script>
+    (function () {
+        const c = document.getElementById('canvas');
+        function fit() {
+            const s = Math.min(window.innerWidth / 765, window.innerHeight / 503);
+            c.style.width = Math.floor(765 * s) + 'px';
+            c.style.height = Math.floor(503 * s) + 'px';
+        }
+        window.addEventListener('resize', fit);
+        fit();
+        c.focus();
+    })();
+</script>
+<script type="module" src="client.js"></script>
+</body>
+</html>

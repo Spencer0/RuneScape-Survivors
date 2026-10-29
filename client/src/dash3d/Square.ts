@@ -11,12 +11,15 @@ import Decor from '#/dash3d/Decor.js';
 import { TypedArray1d } from '#/util/Arrays.js';
 
 export default class Square extends Linkable {
+    // survivors: originally 5; hordes stack many entities on one tile
+    static readonly MAX_SPRITES: number = 48;
+
     level: number;
     readonly x: number;
     readonly z: number;
     readonly originalLevel: number;
-    readonly sprites: (Sprite | null)[] = new TypedArray1d(5, null);
-    readonly spriteSpan: Int32Array = new Int32Array(5);
+    readonly sprites: (Sprite | null)[] = new TypedArray1d(Square.MAX_SPRITES, null);
+    readonly spriteSpan: Int32Array = new Int32Array(Square.MAX_SPRITES);
 
     quickGround: QuickGround | null = null;
     ground: Ground | null = null;

@@ -8,6 +8,7 @@ import Packet from '#/io/Packet.js';
 import { Int32Array2d, TypedArray1d } from '#/util/Arrays.js';
 import PointNormal from '#/dash3d/PointNormal.js';
 import ModelSource from '#/dash3d/ModelSource.js';
+import World from '#/dash3d/World.js';
 import type OnDemandProvider from '#/io/OnDemandProvider.js';
 
 class Metadata {
@@ -1720,7 +1721,7 @@ export default class Model extends ModelSource {
         const radiusCosEyePitch: number = (this.radius * cosEyePitch) >> 16;
 
         const maxZ: number = midZ + radiusCosEyePitch;
-        if (maxZ <= 50 || midZ >= 3500) {
+        if (maxZ <= 50 || midZ >= World.farClip) {
             return;
         }
 

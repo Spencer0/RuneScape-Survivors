@@ -1,6 +1,7 @@
 import { gunzipSync } from 'fflate';
 
-import type { Client } from '#/client/Client.js';
+// survivors: any app exposing the two fields OnDemand reads (Client or SurvivorsClient)
+type Client = { db: unknown; ingame: boolean };
 
 import LinkList2 from '#/datastruct/LinkList2.js';
 import LinkList from '#/datastruct/LinkList.js';
@@ -125,7 +126,35 @@ export default class OnDemand extends OnDemandProvider {
 
         this.app = app;
         this.running = true;
-        this.startWorker();
+        if (!OnDemand.staticBundle) {
+            this.startWorker();
+        }
+    }
+
+    // survivors: static on-demand bundle (see tools/extract.ts). When set, requests are served from
+    // memory instead of the update server websocket, so the client runs from a plain static folder.
+    static staticBundle: (Uint8Array | null)[][] | null = null;
+
+    static parseStaticBundle(bundle: Uint8Array): (Uint8Array | null)[][] {
+        const view = new DataView(bundle.buffer, bundle.byteOffset, bundle.byteLength);
+        if (String.fromCharCode(bundle[0], bundle[1], bundle[2], bundle[3]) !== 'GSOD') {
+            throw new Error('bad ondemand bundle');
+        }
+        const archives = bundle[4];
+        const out: (Uint8Array | null)[][] = [];
+        let pos = 5;
+        for (let a = 0; a < archives; a++) {
+            const count = view.getUint32(pos);
+            pos += 4;
+            out[a] = new Array(count);
+            for (let f = 0; f < count; f++) {
+                const offset = view.getUint32(pos);
+                const length = view.getUint32(pos + 4);
+                pos += 8;
+                out[a][f] = length > 0 ? bundle.subarray(offset, offset + length) : null;
+            }
+        }
+        return out;
     }
 
     stop() {
@@ -212,6 +241,13 @@ export default class OnDemand extends OnDemandProvider {
         req.urgent = true;
 
         this.requests.push(req);
+
+        if (OnDemand.staticBundle) {
+            const data = OnDemand.staticBundle[archive]?.[file] ?? null;
+            this.receiveCompleted(archive, file, true, data ? data.slice().buffer : null);
+            return;
+        }
+
         this.postWorker({
             type: 'request',
             archive,
@@ -240,6 +276,10 @@ export default class OnDemand extends OnDemandProvider {
     }
 
     async prefetchPriority(archive: number, file: number, priority: number) {
+        if (OnDemand.staticBundle) {
+            return;
+        }
+
         if (!this.app.db || this.versions[archive][file] === 0) {
             return;
         }
@@ -253,10 +293,18 @@ export default class OnDemand extends OnDemandProvider {
     }
 
     clearPrefetches() {
+        if (OnDemand.staticBundle) {
+            return;
+        }
+
         this.postWorker({ type: 'clearPrefetches' });
     }
 
     prefetch(archive: number, file: number) {
+        if (OnDemand.staticBundle) {
+            return;
+        }
+
         if (!this.app.db || this.versions[archive][file] === 0) {
             return;
         }
@@ -269,7 +317,7 @@ export default class OnDemand extends OnDemandProvider {
     }
 
     async run() {
-        if (!this.running) {
+        if (!this.running || OnDemand.staticBundle) {
             return;
         }
 

@@ -1,4 +1,4 @@
-import { Client } from '#/client/Client.js';
+import { Cycle } from '#/client/Cycle.js';
 
 import IdkType from '#/config/IdkType.js';
 import NpcType from '#/config/NpcType.js';
@@ -357,11 +357,11 @@ export default class ClientPlayer extends ClientEntity {
         }
 
         if (this.locModel != null) {
-            if (Client.loopCycle >= this.locStopCycle) {
+            if (Cycle.loop >= this.locStopCycle) {
                 this.locModel = null;
             }
 
-            if (Client.loopCycle >= this.locStartCycle && Client.loopCycle < this.locStopCycle) {
+            if (Cycle.loop >= this.locStartCycle && Cycle.loop < this.locStopCycle) {
                 const loc = this.locModel;
                 if (loc) {
                     loc.translate(this.locOffsetY - this.y, this.locOffsetX - this.x, this.locOffsetZ - this.z);

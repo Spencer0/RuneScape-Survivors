@@ -84,6 +84,20 @@ const OCCLUDER_LEVELS = 4;
 export default class World {
     static lowMem: boolean = true;
 
+    // survivors: configurable draw distance (tiles from the camera focus). The original client
+    // hard-codes 25 and a precomputed visibility table; with dynamicVis the table is replaced by a
+    // per-frame frustum test so the whole arena can be drawn at max zoom with no pop-in.
+    static drawRadius: number = 25;
+    static dynamicVis: boolean = false;
+    static farClip: number = 3500;
+    private static dynVis: boolean[][] = [];
+
+    // survivors: per-tile highlight colours for boss telegraphs, drawn translucently on top of the
+    // ground but under entities (0 = none). Indexed [x * maxTileZ + z] in build-area tiles, level 0.
+    static highlightColour: Int32Array = new Int32Array(104 * 104);
+    static highlightAlpha: Uint8Array = new Uint8Array(104 * 104);
+    static highlightCount: number = 0;
+
     private static cameraSinX: number = 0;
     private static cameraCosX: number = 0;
     private static cameraSinY: number = 0;
@@ -935,7 +949,7 @@ export default class World {
         const pz: number = (y * this.cameraSinX + tmp * this.cameraCosX) >> 16;
         const py: number = (y * this.cameraCosX - tmp * this.cameraSinX) >> 16;
 
-        if (pz < 50 || pz > 3500) {
+        if (pz < 50 || pz > World.farClip) {
             return false;
         }
 
@@ -950,6 +964,134 @@ export default class World {
         World.clickY = mouseY;
         World.groundX = -1;
         World.groundZ = -1;
+    }
+
+    private calcDynamicVis(eyeX: number, eyeY: number, eyeZ: number): void {
+        const r: number = World.drawRadius;
+        const size: number = r * 2 + 1;
+        if (World.dynVis.length !== size) {
+            World.dynVis = [];
+            for (let i = 0; i < size; i++) {
+                World.dynVis[i] = new Array(size).fill(false);
+            }
+        }
+
+        const gx: number = (eyeX / 128) | 0;
+        const gz: number = (eyeZ / 128) | 0;
+        const margin: number = 96;
+        const minX: number = World.xClip - margin;
+        const maxX: number = World.xClip2 + margin;
+        const minY: number = World.yClip - margin * 2;
+        const maxY: number = World.yClip2 + margin;
+        const heights = this.groundh[0];
+
+        for (let dx = -r; dx <= r; dx++) {
+            const col = World.dynVis[dx + r];
+            const tx = gx + dx;
+            for (let dz = -r; dz <= r; dz++) {
+                const tz = gz + dz;
+                if (tx < 0 || tz < 0 || tx >= this.maxTileX || tz >= this.maxTileZ) {
+                    col[dz + r] = false;
+                    continue;
+                }
+
+                const x = tx * 128 + 64 - eyeX;
+                const z = tz * 128 + 64 - eyeZ;
+                const ground = heights[tx][tz] - eyeY;
+                let visible = false;
+                // test the tile centre at ground level and at a raised height (tall scenery / NPCs)
+                for (let h = 0; h < 2 && !visible; h++) {
+                    const y = h === 0 ? ground : ground - 400;
+                    const px = (z * World.cameraSinY + x * World.cameraCosY) >> 16;
+                    const tmp = (z * World.cameraCosY - x * World.cameraSinY) >> 16;
+                    const pz = (y * World.cameraSinX + tmp * World.cameraCosX) >> 16;
+                    const py = (y * World.cameraCosX - tmp * World.cameraSinX) >> 16;
+                    if (pz < 50 || pz > World.farClip) {
+                        continue;
+                    }
+                    const sx = World.xOrig + (((px << 9) / pz) | 0);
+                    const sy = World.yOrig + (((py << 9) / pz) | 0);
+                    visible = sx >= minX && sx <= maxX && sy >= minY && sy <= maxY;
+                }
+                col[dz + r] = visible;
+            }
+        }
+
+        World.visBackingDirty = World.dynVis;
+    }
+
+    // survivors: viewport used by the dynamic visibility test (World.resetVisCalc also sets this)
+    static setViewport(width: number, height: number): void {
+        this.xClip = 0;
+        this.yClip = 0;
+        this.xClip2 = width;
+        this.yClip2 = height;
+        this.xOrig = (width / 2) | 0;
+        this.yOrig = (height / 2) | 0;
+    }
+
+    static clearHighlights(): void {
+        if (this.highlightCount > 0) {
+            this.highlightColour.fill(0);
+            this.highlightAlpha.fill(0);
+            this.highlightCount = 0;
+        }
+    }
+
+    static setHighlight(x: number, z: number, rgb: number, alpha: number): void {
+        if (x < 0 || z < 0 || x >= 104 || z >= 104) {
+            return;
+        }
+        const i = x * 104 + z;
+        if (this.highlightAlpha[i] === 0) {
+            this.highlightCount++;
+        }
+        // keep the strongest highlight when patterns overlap
+        if (alpha >= this.highlightAlpha[i]) {
+            this.highlightColour[i] = rgb;
+            this.highlightAlpha[i] = alpha;
+        }
+    }
+
+    private renderHighlight(level: number, tileX: number, tileZ: number): void {
+        const i = tileX * 104 + tileZ;
+        const alpha = World.highlightAlpha[i];
+        if (alpha === 0) {
+            return;
+        }
+
+        const rgb = World.highlightColour[i];
+        const h = this.groundh[level];
+        // inset slightly so neighbouring highlighted tiles read as a grid, like the RS tile marker
+        const inset = 6;
+        const xs = [(tileX << 7) + inset, (tileX << 7) + 128 - inset, (tileX << 7) + 128 - inset, (tileX << 7) + inset];
+        const zs = [(tileZ << 7) + inset, (tileZ << 7) + inset, (tileZ << 7) + 128 - inset, (tileZ << 7) + 128 - inset];
+        const ys = [h[tileX][tileZ], h[tileX + 1][tileZ], h[tileX + 1][tileZ + 1], h[tileX][tileZ + 1]];
+        const sx = [0, 0, 0, 0];
+        const sy = [0, 0, 0, 0];
+
+        for (let v = 0; v < 4; v++) {
+            let x = xs[v] - World.cx;
+            let y = ys[v] - World.cy - 2;
+            let z = zs[v] - World.cz;
+            let tmp = (z * World.cameraSinY + x * World.cameraCosY) >> 16;
+            z = (z * World.cameraCosY - x * World.cameraSinY) >> 16;
+            x = tmp;
+            tmp = (y * World.cameraCosX - z * World.cameraSinX) >> 16;
+            z = (y * World.cameraSinX + z * World.cameraCosX) >> 16;
+            y = tmp;
+            if (z < 50) {
+                return;
+            }
+            sx[v] = Pix3D.originX + (((x << 9) / z) | 0);
+            sy[v] = Pix3D.originY + (((y << 9) / z) | 0);
+        }
+
+        Pix3D.trans = 256 - alpha;
+        Pix3D.hclip = true;
+        Pix3D.flatTriangle(sx[0], sx[1], sx[2], sy[0], sy[1], sy[2], rgb);
+        Pix3D.flatTriangle(sx[0], sx[2], sx[3], sy[0], sy[2], sy[3], rgb);
+        Pix3D.trans = 0;
     }
 
     renderAll(eyeX: number, eyeY: number, eyeZ: number, maxLevel: number, eyeYaw: number, eyePitch: number): void {
@@ -971,7 +1113,11 @@ export default class World {
         World.cameraSinY = Pix3D.sinTable[eyeYaw];
         World.cameraCosY = Pix3D.cosTable[eyeYaw];
 
-        World.visBackingDirty = World.visBacking[((eyePitch - 128) / 32) | 0][(eyeYaw / 64) | 0];
+        if (World.dynamicVis) {
+            this.calcDynamicVis(eyeX, eyeY, eyeZ);
+        } else {
+            World.visBackingDirty = World.visBacking[((eyePitch - 128) / 32) | 0][(eyeYaw / 64) | 0];
+        }
         World.cx = eyeX;
         World.cy = eyeY;
         World.cz = eyeZ;
@@ -979,22 +1125,22 @@ export default class World {
         World.gz = (eyeZ / 128) | 0;
         World.maxLevel = maxLevel;
 
-        World.minX = World.gx - 25;
+        World.minX = World.gx - World.drawRadius;
         if (World.minX < 0) {
             World.minX = 0;
         }
 
-        World.minZ = World.gz - 25;
+        World.minZ = World.gz - World.drawRadius;
         if (World.minZ < 0) {
             World.minZ = 0;
         }
 
-        World.maxX = World.gx + 25;
+        World.maxX = World.gx + World.drawRadius;
         if (World.maxX > this.maxTileX) {
             World.maxX = this.maxTileX;
         }
 
-        World.maxZ = World.gz + 25;
+        World.maxZ = World.gz + World.drawRadius;
         if (World.maxZ > this.maxTileZ) {
             World.maxZ = this.maxTileZ;
         }
@@ -1011,7 +1157,7 @@ export default class World {
                         continue;
                     }
 
-                    if (tile.drawLevel <= maxLevel && (World.visBackingDirty[x + 25 - World.gx][z + 25 - World.gz] || this.groundh[level][x][z] - eyeY >= 2000)) {
+                    if (tile.drawLevel <= maxLevel && (World.visBackingDirty[x + World.drawRadius - World.gx][z + World.drawRadius - World.gz] || this.groundh[level][x][z] - eyeY >= 2000)) {
                         tile.drawFront = true;
                         tile.drawBack = true;
                         tile.drawSprites = tile.spriteCount > 0;
@@ -1027,7 +1173,7 @@ export default class World {
 
         for (let level: number = this.minLevel; level < this.maxTileLevel; level++) {
             const tiles: (Square | null)[][] = this.squares[level];
-            for (let dx: number = -25; dx <= 0; dx++) {
+            for (let dx: number = -World.drawRadius; dx <= 0; dx++) {
                 const rightTileX: number = World.gx + dx;
                 const leftTileX: number = World.gx - dx;
 
@@ -1035,7 +1181,7 @@ export default class World {
                     continue;
                 }
 
-                for (let dz: number = -25; dz <= 0; dz++) {
+                for (let dz: number = -World.drawRadius; dz <= 0; dz++) {
                     const forwardTileZ: number = World.gz + dz;
                     const backwardTileZ: number = World.gz - dz;
                     let tile: Square | null;
@@ -1082,7 +1228,7 @@ export default class World {
 
         for (let level: number = this.minLevel; level < this.maxTileLevel; level++) {
             const tiles: (Square | null)[][] = this.squares[level];
-            for (let dx: number = -25; dx <= 0; dx++) {
+            for (let dx: number = -World.drawRadius; dx <= 0; dx++) {
                 const rightTileX: number = World.gx + dx;
                 const leftTileX: number = World.gx - dx;
 
@@ -1090,7 +1236,7 @@ export default class World {
                     continue;
                 }
 
-                for (let dz: number = -25; dz <= 0; dz++) {
+                for (let dz: number = -World.drawRadius; dz <= 0; dz++) {
                     const forwardTileZ: number = World.gz + dz;
                     const backgroundTileZ: number = World.gz - dz;
                     let tile: Square | null;
@@ -1162,7 +1308,7 @@ export default class World {
                 }
 
                 const tile: Square | null = this.squares[level][tx][tz];
-                if (tile && tile.spriteCount >= 5) {
+                if (tile && tile.spriteCount >= Square.MAX_SPRITES) {
                     return false;
                 }
             }
@@ -1255,16 +1401,16 @@ export default class World {
             let deltaMaxTileX: number;
 
             if (occluder.type === 1) {
-                deltaMaxY = occluder.minTileX + 25 - World.gx;
-                if (deltaMaxY >= 0 && deltaMaxY <= 50) {
-                    deltaMinTileZ = occluder.minTileZ + 25 - World.gz;
+                deltaMaxY = occluder.minTileX + World.drawRadius - World.gx;
+                if (deltaMaxY >= 0 && deltaMaxY <= World.drawRadius * 2) {
+                    deltaMinTileZ = occluder.minTileZ + World.drawRadius - World.gz;
                     if (deltaMinTileZ < 0) {
                         deltaMinTileZ = 0;
                     }
 
-                    deltaMaxTileZ = occluder.maxTileZ + 25 - World.gz;
-                    if (deltaMaxTileZ > 50) {
-                        deltaMaxTileZ = 50;
+                    deltaMaxTileZ = occluder.maxTileZ + World.drawRadius - World.gz;
+                    if (deltaMaxTileZ > World.drawRadius * 2) {
+                        deltaMaxTileZ = World.drawRadius * 2;
                     }
 
                     let ok: boolean = false;
@@ -1296,17 +1442,17 @@ export default class World {
                     }
                 }
             } else if (occluder.type === 2) {
-                deltaMaxY = occluder.minTileZ + 25 - World.gz;
+                deltaMaxY = occluder.minTileZ + World.drawRadius - World.gz;
 
-                if (deltaMaxY >= 0 && deltaMaxY <= 50) {
-                    deltaMinTileZ = occluder.minTileX + 25 - World.gx;
+                if (deltaMaxY >= 0 && deltaMaxY <= World.drawRadius * 2) {
+                    deltaMinTileZ = occluder.minTileX + World.drawRadius - World.gx;
                     if (deltaMinTileZ < 0) {
                         deltaMinTileZ = 0;
                     }
 
-                    deltaMaxTileZ = occluder.maxTileX + 25 - World.gx;
-                    if (deltaMaxTileZ > 50) {
-                        deltaMaxTileZ = 50;
+                    deltaMaxTileZ = occluder.maxTileX + World.drawRadius - World.gx;
+                    if (deltaMaxTileZ > World.drawRadius * 2) {
+                        deltaMaxTileZ = World.drawRadius * 2;
                     }
 
                     let ok: boolean = false;
@@ -1341,25 +1487,25 @@ export default class World {
                 deltaMaxY = occluder.minY - World.cy;
 
                 if (deltaMaxY > 128) {
-                    deltaMinTileZ = occluder.minTileZ + 25 - World.gz;
+                    deltaMinTileZ = occluder.minTileZ + World.drawRadius - World.gz;
                     if (deltaMinTileZ < 0) {
                         deltaMinTileZ = 0;
                     }
 
-                    deltaMaxTileZ = occluder.maxTileZ + 25 - World.gz;
-                    if (deltaMaxTileZ > 50) {
-                        deltaMaxTileZ = 50;
+                    deltaMaxTileZ = occluder.maxTileZ + World.drawRadius - World.gz;
+                    if (deltaMaxTileZ > World.drawRadius * 2) {
+                        deltaMaxTileZ = World.drawRadius * 2;
                     }
 
                     if (deltaMinTileZ <= deltaMaxTileZ) {
-                        let deltaMinTileX: number = occluder.minTileX + 25 - World.gx;
+                        let deltaMinTileX: number = occluder.minTileX + World.drawRadius - World.gx;
                         if (deltaMinTileX < 0) {
                             deltaMinTileX = 0;
                         }
 
-                        deltaMaxTileX = occluder.maxTileX + 25 - World.gx;
-                        if (deltaMaxTileX > 50) {
-                            deltaMaxTileX = 50;
+                        deltaMaxTileX = occluder.maxTileX + World.drawRadius - World.gx;
+                        if (deltaMaxTileX > World.drawRadius * 2) {
+                            deltaMaxTileX = World.drawRadius * 2;
                         }
 
                         let ok: boolean = false;
@@ -1487,6 +1633,10 @@ export default class World {
                 } else if (!this.groundOccluded(originalLevel, tileX, tileZ)) {
                     tileDrawn = true;
                     this.renderQuickGround(tile.quickGround, originalLevel, tileX, tileZ, World.cameraSinX, World.cameraCosX, World.cameraSinY, World.cameraCosY);
+                }
+
+                if (World.highlightCount > 0 && originalLevel === 0) {
+                    this.renderHighlight(originalLevel, tileX, tileZ);
                 }
 
                 let direction: number = 0;

@@ -1,4 +1,4 @@
-import { Client } from '#/client/Client.js';
+import { Cycle } from '#/client/Cycle.js';
 
 import LocType from '#/config/LocType.js';
 import SeqType from '#/config/SeqType.js';
@@ -32,7 +32,7 @@ export default class ClientLocAnim extends ModelSource {
 
         this.anim = SeqType.list[seq];
         this.animFrame = 0;
-        this.animCycle = Client.loopCycle;
+        this.animCycle = Cycle.loop;
 
         if (randomFrame && this.anim.loops !== -1) {
             this.animFrame = (Math.random() * this.anim.numFrames) | 0;
@@ -42,7 +42,7 @@ export default class ClientLocAnim extends ModelSource {
 
     override getTempModel(): Model | null {
         if (this.anim) {
-            let delta = Client.loopCycle - this.animCycle;
+            let delta = Cycle.loop - this.animCycle;
             if (delta > 100 && this.anim.loops > 0) {
                 delta = 100;
             }
@@ -63,7 +63,7 @@ export default class ClientLocAnim extends ModelSource {
                 }
             }
 
-            this.animCycle = Client.loopCycle - delta;
+            this.animCycle = Cycle.loop - delta;
         }
 
         let frame = -1;

@@ -17,6 +17,7 @@ export default class SimBridge {
     error: string | null = null;
     ready = false;
     autoplay = false;
+    speed = 1; // debug/test only: sim ticks per 600ms
 
     start(arena: ArenaData, db: GameDb, loadout: RunLoadout, bot?: string, endless?: boolean): void {
         this.stop();
@@ -73,9 +74,10 @@ export default class SimBridge {
             if (this.queued.length > 0) this.flush();
             return;
         }
-        if (++this.cycle >= CYCLES_PER_TICK) {
+        if (++this.cycle >= Math.max(1, Math.round(CYCLES_PER_TICK / this.speed))) {
             if (this.waiting) {
                 this.cycle = CYCLES_PER_TICK; // the worker is late; step as soon as it replies
+                return;
                 return;
             }
             this.flush();

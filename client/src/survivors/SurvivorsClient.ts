@@ -209,6 +209,7 @@ export default class SurvivorsClient extends GameShell {
         this.screen = 'run';
         this.ingame = true;
         await this.runScreen.start(arena, loadout, validLook(p.appearance), this.params.get('bot') ?? undefined, this.params.get('endless') === '1');
+        this.runScreen.bridge.speed = Math.max(1, Math.min(10, parseInt(this.params.get('speed') ?? '1', 10) || 1));
     }
 
     private runOver(r: RunResults): void {
@@ -461,6 +462,22 @@ export default class SurvivorsClient extends GameShell {
             zoom: this.camera.zoom,
             talentXpMax: talentXpForPoint(30)
         };
+    }
+
+    debugProfile(): unknown {
+        return JSON.parse(JSON.stringify(Save.profile));
+    }
+
+    cameraIntro(): string | null {
+        return this.camera.introName;
+    }
+
+    exportSave(): void {
+        Save.exportFile();
+    }
+
+    importSave(): Promise<string | null> {
+        return Save.importFile();
     }
 
     debugTab(tab: string): void {

@@ -12,6 +12,7 @@ later sections are the running final report.
 |---|---|
 | Pick race, gender, class, zone; Enter starts a run | Main screen: class (Melee/Ranged/Magic), zone, and a "Your hero" panel (live model in its equipped gear + gear slots). The appearance designer was dropped after play-testing (hard to read); the hero uses the saved/default 2004 idk look. **Enter World** or Enter key. No login. |
 | WASD real-time movement, auto-cast spells | Authentic RS: click-to-walk on the real collision map, 600 ms ticks, walk 1 tile/tick, run 2 tiles/tick with run energy. Abilities auto-fire on tick cooldowns. |
+| — | The 2004 right-click **Choose Option** menu (long-press on touch), built from the client's own model picking: Walk here, Attack <npc> (level-N, RS combat colours vs. 3 + 3 × run level) which makes every ability prefer that enemy while it is in range, Take <item>, Open Chest, Examine (cache examine text in the chat), Cancel. |
 | Horde grows with the run clock | Spawn director scales count/HP/damage by run clock; spawns just inside the arena border from the zone's native roster. |
 | 5 bosses at 3/6/9/12/16 min, can overlap, enrage <30% | Same schedule (configurable), real 2004 NPCs as bosses, telegraphed **tile** attacks, enrage <30% (shorter telegraphs / overlapping patterns). |
 | Final boss unlocks next zone for that class only; endless mode after | Same; endless brings bosses back on a timer. |
@@ -181,7 +182,8 @@ any size), projectiles, map spotanims, ground objects, loc changes, telegraph ti
 |---|---|---|
 | Clean clone → playing in ≤10 commands | Fresh `git clone` into an empty dir, then `npm install`, `npm run setup`, `npm run build`, `npm run serve` (README-SURVIVORS.md); page loaded in headless Chromium and a run started | 6 commands, 38 s setup+build, run starts |
 | Zero typing, Enter World < 5 s | Playwright timing on the built site | page load → main screen 1.7 s; Enter World → playing 0.5 s |
-| Tick movement + interpolation, walk/run anims, run toggle, click = walk | Scripted mouse and touch play-tests; movement uses the original `routeMove` (4/8 units per cycle); no menu code exists in the survivors client | OK |
+| Tick movement + interpolation, walk/run anims, run toggle, click = walk | Scripted mouse and touch play-tests; movement uses the original `routeMove` (4/8 units per cycle) | OK |
+| Right-click / long-press Choose Option menu | Playwright: right-click (desktop) and 700 ms touch hold (390×844) open the menu over a rat; Attack sets the focus (gold tile marker, chat line); headless check that `targets()` returns the focused enemy first for nearest/random/lowest | OK |
 | 150+ enemies ≥ 30 fps at max zoom, overlay | `?horde=180&bot=dodger` at zoom 9600 / pitch 470, `F` overlay (fps, render ms, sim tick ms, entities) — `docs/survivors/horde-max-zoom.png` | 30–33 fps with 184 entities in headless software Chromium (4 vCPU); sim tick 0.3–0.6 ms (worst 16 ms of 600) |
 | Camera: zoom range, rotate/pitch, eased follow, shake, boss intro, auto-frame, Options | Screenshots at zoom 700…9600; boss intro captured (eased pan + quill-font name, snap back); Options sliders/toggles wired to `Camera.options` | OK |
 | 3 classes, all families + sets, 3 zones, 5 bosses each, telegraphs, enrage, guardians, caches, coins, rerolls, magnets, endless | `npm run sim` (500 runs) + in-browser autoplay runs: win → endless with returning bosses verified | OK |

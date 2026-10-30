@@ -38,6 +38,7 @@ Other commands:
 | Action | Mouse / keyboard | Touch |
 |---|---|---|
 | Walk | Left-click any tile (every click is "walk here") | Tap a tile |
+| Choose Option menu (Walk here, Attack, Take, Open, Examine, Cancel) | Right-click | Long-press |
 | Run on/off | Click the run-energy orb, or `X` | Tap the orb |
 | Zoom | Mouse wheel | Pinch |
 | Rotate / pitch camera | Middle-mouse drag, or arrow keys | One- or two-finger drag |

@@ -1,7 +1,10 @@
 // The in-run view: applies simulation snapshots to the client entities/scene, renders the world,
 // telegraphs, hitsplats/HP bars, the HUD, level-up cards and the pause / victory dialogs.
 import { Cycle } from '#/client/Cycle.js';
+import LocType from '#/config/LocType.js';
+import ObjType from '#/config/ObjType.js';
 import ClientEntity from '#/dash3d/ClientEntity.js';
+import type ClientNpc from '#/dash3d/ClientNpc.js';
 import Model from '#/dash3d/Model.js';
 import Pix3D from '#/dash3d/Pix3D.js';
 import World from '#/dash3d/World.js';
@@ -24,6 +27,25 @@ import Gfx, { COL, RARITY_COLOURS, RARITY_NAMES } from '#/survivors/ui/Gfx.js';
 import Ui, { type Rect } from '#/survivors/ui/Ui.js';
 
 type Message = { text: string; colour: number; cycle: number };
+type MenuEntry = { label: string; run: () => void };
+
+function article(name: string): string {
+    return `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name.toLowerCase()}`;
+}
+
+// RS combat level colour of an NPC relative to the viewer (Client.combatColourCode)
+function combatColour(viewer: number, other: number): string {
+    const diff = viewer - other;
+    if (diff < -9) return '@red@';
+    if (diff < -6) return '@or3@';
+    if (diff < -3) return '@or2@';
+    if (diff < 0) return '@or1@';
+    if (diff > 9) return '@gre@';
+    if (diff > 6) return '@gr3@';
+    if (diff > 3) return '@gr2@';
+    if (diff > 0) return '@gr1@';
+    return '@yel@';
+}
 
 export type RunHost = {
     scene: Scene;
@@ -67,6 +89,11 @@ export default class RunScreen {
     private bossNameCycle = 0;
     telegraphCount = 0;
     private dest: { x: number; z: number } | null = null;
+    // right-click / long-press "Choose Option" menu: requested on a click, built from the next
+    // frame's model picking (Model.mouseCheck), like Client.handleViewportOptions
+    private menuReq: { x: number; y: number } | null = null;
+    private menu: { x: number; y: number; w: number; h: number; rowH: number; entries: MenuEntry[] } | null = null;
+    private focus: { slot: number; npc: ClientNpc } | null = null; // the Attack target
     private destIdle = 0;
 
     // the clicked destination tile, marked faintly until you arrive (like the OSRS destination flag)
@@ -89,6 +116,9 @@ export default class RunScreen {
         this.messages = [];
         this.overDelay = -1;
         this.dest = null;
+        this.menu = null;
+        this.menuReq = null;
+        this.focus = null;
 
         World.clearHighlights();
         RunScreen.setArenaBounds(arenaData);
@@ -230,6 +260,7 @@ export default class RunScreen {
             if ((snap.playerX === this.dest.x && snap.playerZ === this.dest.z) || this.destIdle >= 2) this.dest = null;
         }
         this.markDest();
+        this.markFocus();
 
         this.hud = snap.hud;
         const wasLevel = this.levelUp !== null;
@@ -298,7 +329,8 @@ export default class RunScreen {
         }
         if (key === 27) {
             // Esc
-            this.paused = !this.paused;
+            if (this.menu) this.menu = null;
+            else this.paused = !this.paused;
         }
         if (key === 120 || key === 88) {
             // X: toggle run
@@ -307,6 +339,139 @@ export default class RunScreen {
         if (key === 102 || key === 70) {
             this.host.options.showFps = !this.host.options.showFps;
         }
+    }
+
+    openMenu(x: number, y: number): void {
+        if (this.levelUp || this.paused || this.victory || this.results) return;
+        this.menu = null;
+        this.menuReq = { x, y };
+        this.host.scene.world.updateMousePicking(x, y);
+    }
+
+    private buildMenu(): void {
+        const req = this.menuReq!;
+        this.menuReq = null;
+        const { entities, scene } = this.host;
+        const entries: MenuEntry[] = [];
+        const gx = World.groundX;
+        const gz = World.groundZ;
+        World.groundX = -1;
+        if (gx !== -1) entries.push({ label: 'Walk here', run: () => this.walkTo(gx, gz, req.x, req.y, 1) });
+
+        const rowH = Ui.touch ? 24 : 15;
+        const maxEntries = Math.max(3, Math.floor((Ui.H - 22) / rowH) - 1);
+        const viewer = Math.min(126, 3 + 3 * (this.hud?.level ?? 1));
+        const seen = new Set<number>();
+        // front-most model first (models are drawn back to front)
+        for (let i = Model.pickedCount - 1; i >= 0 && entries.length < maxEntries; i--) {
+            const typecode = Model.pickedEntityTypecode[i];
+            if (seen.has(typecode)) continue;
+            seen.add(typecode);
+            const x = typecode & 0x7f;
+            const z = (typecode >> 7) & 0x7f;
+            const kind = (typecode >> 29) & 0x3;
+            const id = (typecode >> 14) & 0x7fff;
+            if (kind === 1) {
+                const npc = entities.npc[id];
+                const type = npc?.type;
+                if (!npc || !type || !type.name) continue;
+                const name = type.vislevel > 0 ? `@yel@${type.name}${combatColour(viewer, type.vislevel)} (level-${type.vislevel})` : `@yel@${type.name}`;
+                entries.push({ label: `Attack ${name}`, run: () => this.attack(id, npc, type.name!, req.x, req.y) });
+                entries.push({ label: `Examine @yel@${type.name}`, run: () => this.message(type.desc ?? `It's ${article(type.name!)}.`, COL.WHITE) });
+            } else if (kind === 2) {
+                if (scene.world.typeCode2(scene.level, x, z, typecode) < 0) continue;
+                const loc = LocType.list(id);
+                if (!loc.name) continue;
+                // only chests (the run's caches) can be used; the walk there opens it
+                for (const op of loc.op ?? []) {
+                    if (op && op.toLowerCase() === 'open') entries.push({ label: `${op} @cya@${loc.name}`, run: () => this.walkTo(x, z, req.x, req.y, 2) });
+                }
+                entries.push({ label: `Examine @cya@${loc.name}`, run: () => this.message(loc.desc ?? `It's ${article(loc.name!)}.`, COL.WHITE) });
+            } else if (kind === 3) {
+                const objs = scene.groundObj[scene.level][x][z];
+                if (!objs) continue;
+                for (let obj = objs.head(); obj !== null && entries.length < maxEntries; obj = objs.next()) {
+                    const type = ObjType.list(obj.id);
+                    if (!type.name) continue;
+                    entries.push({ label: `Take @lre@${type.name}`, run: () => this.walkTo(x, z, req.x, req.y, 2) });
+                    entries.push({ label: `Examine @lre@${type.name}`, run: () => this.message(type.desc ?? `It's ${article(type.name!)}.`, COL.WHITE) });
+                }
+            }
+        }
+        entries.push({ label: 'Cancel', run: () => {} });
+
+        let w = Gfx.width('Choose Option', 'b12');
+        for (const e of entries) w = Math.max(w, Gfx.width(e.label, 'b12'));
+        w += 8;
+        const h = entries.length * rowH + 22;
+        const mx = Math.max(0, Math.min(Ui.W - w, req.x - (w >> 1)));
+        const my = Math.max(0, Math.min(Ui.H - h, req.y - 4));
+        this.menu = { x: mx, y: my, w, h, rowH, entries };
+    }
+
+    // Client.drawMinimenu
+    private drawMenu(): void {
+        const m = this.menu!;
+        const background = 0x5d5447;
+        Pix2D.fillRect(m.x, m.y, m.w, m.h, background);
+        Pix2D.fillRect(m.x + 1, m.y + 1, m.w - 2, 16, 0x000000);
+        Pix2D.drawRect(m.x + 1, m.y + 18, m.w - 2, m.h - 19, 0x000000);
+        Gfx.text('Choose Option', m.x + 3, m.y + 14, background, 'b12', false);
+        let chosen: MenuEntry | null = null;
+        m.entries.forEach((e, i) => {
+            const baseline = m.y + 18 + i * m.rowH + ((m.rowH + 11) >> 1) + 1;
+            const row: Rect = { x: m.x, y: m.y + 19 + i * m.rowH, w: m.w, h: m.rowH };
+            Gfx.text(e.label, m.x + 3, baseline, Ui.hover(row) ? COL.YELLOW : COL.WHITE, 'b12');
+            if (Ui.hit(row)) chosen = e;
+        });
+        const outside = !Ui.inside({ x: m.x - 10, y: m.y - 10, w: m.w + 20, h: m.h + 20 }, Ui.mouseX, Ui.mouseY);
+        if (chosen) {
+            this.menu = null;
+            (chosen as MenuEntry).run();
+        } else if (Ui.hasClick()) {
+            // a click elsewhere closes it (a right-click then opens a new one)
+            this.menu = null;
+            if (!Ui.clickSecondary) Ui.block({ x: 0, y: 0, w: Ui.W, h: Ui.H });
+        } else if (!Ui.touch && outside) {
+            this.menu = null; // RS: moving the mouse away closes the menu
+        }
+        Ui.block(m);
+    }
+
+    private walkTo(x: number, z: number, sx: number, sy: number, cross: 1 | 2): void {
+        this.bridge.send({ type: 'walk', x, z });
+        this.crossMode = cross;
+        this.crossCycle = 0;
+        this.crossX = sx;
+        this.crossY = sy;
+        this.dest = { x, z };
+        this.destIdle = -1;
+        this.markDest();
+    }
+
+    private attack(slot: number, npc: ClientNpc, name: string, sx: number, sy: number): void {
+        this.bridge.send({ type: 'attack', slot });
+        this.focus = { slot, npc };
+        this.markFocus();
+        this.crossMode = 2;
+        this.crossCycle = 0;
+        this.crossX = sx;
+        this.crossY = sy;
+        this.message(`Your attacks focus on the ${name}.`, COL.WHITE);
+    }
+
+    // a faint gold square under the Attack target; dropped once it dies (its slot empties)
+    private markFocus(): void {
+        if (!this.focus) return;
+        const npc = this.host.entities.npc[this.focus.slot];
+        if (npc !== this.focus.npc || !npc.type) {
+            this.focus = null;
+            return;
+        }
+        const size = npc.type.size;
+        const tx = npc.routeX[0]; // the tile it is heading to (south-west corner)
+        const tz = npc.routeZ[0];
+        for (let dx = 0; dx < size; dx++) for (let dz = 0; dz < size; dz++) World.setHighlight(tx + dx, tz + dz, 0xffb000, 64);
     }
 
     worldClick(x: number, y: number): void {
@@ -369,14 +534,26 @@ export default class RunScreen {
         World.lowMem = camera.zoom > 6000;
         entities.addToWorld(this.worldUpdateNum);
         this.worldUpdateNum = 0;
+        const picking = this.menuReq !== null;
+        if (this.menuReq) {
+            Model.mouseCheck = true;
+            Model.mouseX = this.menuReq.x;
+            Model.mouseY = this.menuReq.y;
+            Model.pickedCount = 0;
+        }
         scene.world.renderAll(camera.camX, camera.camY, camera.camZ, this.host.options.hideRoofs ? 0 : 3, camera.camYaw, camera.camPitch);
+        if (picking) {
+            Model.mouseCheck = false;
+            this.buildMenu();
+        }
         scene.world.removeSprites();
         this.textureRunAnims();
         this.entityOverlays();
         this.renderMs = performance.now() - t0;
 
-        if (this.crossMode === 1) {
-            Assets.pix32('cross', (this.crossCycle / 100) | 0)?.plotSprite(this.crossX - 12, this.crossY - 12);
+        if (this.crossMode !== 0) {
+            // yellow cross = walk, red cross = interact
+            Assets.pix32('cross', ((this.crossCycle / 100) | 0) + (this.crossMode === 2 ? 4 : 0))?.plotSprite(this.crossX - 12, this.crossY - 12);
         }
 
         // boss intro title, in the RS quill font
@@ -389,6 +566,8 @@ export default class RunScreen {
         }
 
         this.drawHud();
+        if (this.levelUp || this.paused || this.victory || this.results) this.menu = null;
+        if (this.menu) this.drawMenu();
         if (this.levelUp) this.drawLevelUp(this.levelUp);
         else if (this.victory) this.drawVictory();
         else if (this.paused) this.drawPause();

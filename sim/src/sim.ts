@@ -138,6 +138,8 @@ export class Sim implements SimApi {
     private alive: Enemy[] = [];
     private freeSlots: number[] = [];
     private slotGen = new Int32Array(MAX_SLOTS);
+    private focus = -1; // enemy slot chosen with right-click Attack
+    private focusGen = 0;
     private readonly occupancy = new Uint16Array(SIZE * SIZE);
     private readonly pickups = new Map<number, Pickup>();
     private readonly pickupAt = new Map<number, number[]>(); // tile -> uids
@@ -290,6 +292,7 @@ export class Sim implements SimApi {
             if (d <= range) cands.push({ e, d });
         }
         if (cands.length === 0) return [];
+        const focus = this.focus >= 0 && this.focusGen === this.slotGen[this.focus] ? cands.findIndex(c => c.e.slot === this.focus) : -1;
         switch (rule) {
             case 'nearest':
                 cands.sort((a, b) => a.d - b.d || a.e.slot - b.e.slot);
@@ -304,6 +307,11 @@ export class Sim implements SimApi {
             case 'random':
                 this.rng.shuffle(cands);
                 break;
+        }
+        if (focus >= 0) {
+            // the right-click Attack target goes first, whatever the ability's own rule
+            const i = cands.findIndex(c => c.e.slot === this.focus);
+            cands.unshift(cands.splice(i, 1)[0]);
         }
         return cands.slice(0, count).map(c => c.e);
     }
@@ -543,6 +551,13 @@ export class Sim implements SimApi {
                 const tx = Math.max(0, Math.min(SIZE - 1, cmd.x | 0));
                 const tz = Math.max(0, Math.min(SIZE - 1, cmd.z | 0));
                 this.route = this.router.find(this.flags, this.px, this.pz, tx, tz, 12);
+                break;
+            }
+            case 'attack': {
+                const e = this.enemies[cmd.slot | 0];
+                if (!e || !e.alive) return;
+                this.focus = e.slot;
+                this.focusGen = e.gen;
                 break;
             }
             case 'run':

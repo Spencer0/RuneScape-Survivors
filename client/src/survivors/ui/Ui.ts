@@ -15,8 +15,9 @@ export default class Ui {
     static mouseY = -1;
     static touch = false;
 
-    // a tap/click waiting to be consumed by the first widget under it this frame
-    private static click: { x: number; y: number } | null = null;
+    // a tap/click waiting to be consumed by the first widget under it this frame; secondary =
+    // right-click / long-press (opens the world's Choose Option menu; widgets just swallow it)
+    private static click: { x: number; y: number; secondary: boolean } | null = null;
     private static consumed = false;
     static wheel = 0;
     static dragDY = 0;
@@ -32,7 +33,7 @@ export default class Ui {
     }
 
     // returns the click if nobody consumed it (it then becomes a world click)
-    static endFrame(): { x: number; y: number } | null {
+    static endFrame(): { x: number; y: number; secondary: boolean } | null {
         const c = this.consumed ? null : this.click;
         this.click = null;
         this.consumed = false;
@@ -41,13 +42,17 @@ export default class Ui {
         return c;
     }
 
-    static pushClick(x: number, y: number): void {
-        this.click = { x, y };
+    static pushClick(x: number, y: number, secondary: boolean = false): void {
+        this.click = { x, y, secondary };
         this.consumed = false;
     }
 
     static hasClick(): boolean {
         return this.click !== null && !this.consumed;
+    }
+
+    static get clickSecondary(): boolean {
+        return this.click?.secondary ?? false;
     }
 
     static inside(r: Rect, x: number, y: number): boolean {
@@ -62,7 +67,7 @@ export default class Ui {
     static hit(r: Rect): boolean {
         if (this.click && !this.consumed && this.inside(r, this.click.x, this.click.y)) {
             this.consumed = true;
-            return true;
+            return !this.click.secondary;
         }
         return false;
     }
@@ -121,7 +126,7 @@ export default class Ui {
         Pix2D.fillRect(track.x, track.y, fx - track.x, track.h, 0x8c1111);
         Pix2D.fillRect(fx - 3, track.y - 3, 6, track.h + 6, COL.BROWN_LIGHT);
         const hitArea: Rect = { x: track.x - 6, y: r.y, w: track.w + 12, h: r.h };
-        if (this.click && !this.consumed && this.inside(hitArea, this.click.x, this.click.y)) {
+        if (this.click && !this.consumed && !this.click.secondary && this.inside(hitArea, this.click.x, this.click.y)) {
             this.consumed = true;
             const v = Math.round(((this.click.x - track.x) / track.w) * 10) * 10;
             return Math.max(0, Math.min(100, v));

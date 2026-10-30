@@ -189,6 +189,7 @@ export type RunResults = {
 // client -> simulation
 export type Command =
     | { type: 'walk'; x: number; z: number }
+    | { type: 'attack'; slot: number } // right-click Attack: abilities prefer this enemy while it's in range
     | { type: 'run'; on: boolean }
     | { type: 'pick'; index: number }
     | { type: 'reroll' }

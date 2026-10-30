@@ -36,7 +36,9 @@ import Ui from '#/survivors/ui/Ui.js';
 
 type State = 'loading' | 'menu' | 'run' | 'results';
 
-type Pointer = { id: number; x: number; y: number; sx: number; sy: number; t: number; type: string; moved: boolean };
+type Pointer = { id: number; x: number; y: number; sx: number; sy: number; t: number; type: string; moved: boolean; long: boolean };
+
+const LONG_PRESS_MS = 450; // touch: hold this long without moving for the right-click menu
 
 export default class SurvivorsClient extends GameShell {
     db: unknown = null;
@@ -259,6 +261,17 @@ export default class SurvivorsClient extends GameShell {
             else if (this.screen === 'results') this.results.key(key);
         }
 
+        // touch long-press = right-click
+        if (this.pointers.size === 1) {
+            const p = this.pointers.values().next().value as Pointer;
+            if (p.type === 'touch' && !p.moved && !p.long && now - p.t >= LONG_PRESS_MS) {
+                p.long = true;
+                Ui.mouseX = p.x;
+                Ui.mouseY = p.y;
+                Ui.pushClick(p.x, p.y, true);
+            }
+        }
+
         let steps = 0;
         while (this.logicAcc >= 20 && steps < 12) {
             this.logicAcc -= 20;
@@ -353,6 +366,7 @@ export default class SurvivorsClient extends GameShell {
         const worldClick = Ui.endFrame();
         if (worldClick && this.screen === 'run') {
             if (this.runScreen.blurred) this.runScreen.blurred = false;
+            else if (worldClick.secondary) this.runScreen.openMenu(worldClick.x, worldClick.y);
             else this.runScreen.worldClick(worldClick.x, worldClick.y);
         }
         this.frame.draw(0, 0);
@@ -377,7 +391,7 @@ export default class SurvivorsClient extends GameShell {
         Ui.touch = e.pointerType === 'touch';
         Ui.mouseX = x;
         Ui.mouseY = y;
-        this.pointers.set(e.pointerId, { id: e.pointerId, x, y, sx: x, sy: y, t: performance.now(), type: e.pointerType, moved: false });
+        this.pointers.set(e.pointerId, { id: e.pointerId, x, y, sx: x, sy: y, t: performance.now(), type: e.pointerType, moved: false, long: false });
         try {
             canvas.setPointerCapture(e.pointerId);
         } catch (_e) {
@@ -386,6 +400,8 @@ export default class SurvivorsClient extends GameShell {
         if (e.pointerType === 'mouse') {
             if (e.button === 0) {
                 Ui.pushClick(x, y); // RS acts on press
+            } else if (e.button === 2) {
+                Ui.pushClick(x, y, true); // right-click: Choose Option menu
             } else if (e.button === 1) {
                 this.middleDrag = { x, y };
                 e.preventDefault();
@@ -447,7 +463,7 @@ export default class SurvivorsClient extends GameShell {
         if (this.pointers.size < 2) this.pinch = null;
         if (e.pointerType === 'mouse' && e.button === 1) this.middleDrag = null;
         if (!p) return;
-        if (p.type === 'touch' && !p.moved && performance.now() - p.t < 500 && this.pointers.size === 0) {
+        if (p.type === 'touch' && !p.moved && !p.long && performance.now() - p.t < 500 && this.pointers.size === 0) {
             if (this.screen === 'run' && this.runScreen.blurred) this.runScreen.blurred = false;
             Ui.mouseX = x;
             Ui.mouseY = y;

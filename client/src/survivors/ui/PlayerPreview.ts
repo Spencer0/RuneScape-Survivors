@@ -38,12 +38,13 @@ export default class PlayerPreview {
         const ox = Pix3D.originX;
         const oy = Pix3D.originY;
         const xan = 60;
-        const zoom = Math.max(300, ((300 * 512) / Math.max(40, height)) | 0);
+        const zoom = Math.max(240, ((240 * 512) / Math.max(40, height)) | 0); // a player model is ~240 units tall
         const eyeY = (Pix3D.sinTable[xan] * zoom) >> 16;
         const eyeZ = (Pix3D.cosTable[xan] * zoom) >> 16;
-        // objRender projects the model origin (its feet) to originY + (eyeY << 9) / eyeZ
+        // the eye sits on the pitched view ray through the model origin (its feet), so the feet
+        // project exactly onto (originX, originY)
         Pix3D.originX = cx;
-        Pix3D.originY = feetY - (((eyeY << 9) / eyeZ) | 0);
+        Pix3D.originY = feetY;
         model.objRender(0, this.yaw & 0x7ff, 0, xan, 0, eyeY, eyeZ);
         Pix3D.originX = ox;
         Pix3D.originY = oy;

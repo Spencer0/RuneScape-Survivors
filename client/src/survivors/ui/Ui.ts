@@ -107,7 +107,7 @@ export default class Ui {
         const box: Rect = { x: r.x + r.w - 26, y: r.y + ((r.h - 20) >> 1), w: 20, h: 20 };
         Pix2D.fillRect(box.x, box.y, box.w, box.h, 0x2a241d);
         Pix2D.drawRect(box.x, box.y, box.w, box.h, COL.BROWN_LIGHT);
-        if (on) Gfx.icon('miscgraphics', 11, box.x - 8, box.y - 8);
+        if (on) Gfx.icon('miscgraphics', 11, box.x + 3, box.y + 2);
         return this.hit(r);
     }
 

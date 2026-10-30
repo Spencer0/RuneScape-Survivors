@@ -55,8 +55,8 @@ export default class Gfx {
         return this.font(font).stringWid(str);
     }
 
-    // word-wrapped text, returns the y after the last line
-    static wrap(str: string, x: number, y: number, maxWidth: number, rgb: number = COL.YELLOW, font: FontName = 'p11', lineHeight: number = 12, centred: boolean = false): number {
+    // splits str into lines no wider than maxWidth
+    static lines(str: string, maxWidth: number, font: FontName = 'p11'): string[] {
         const words = str.split(' ');
         let line = '';
         const lines: string[] = [];
@@ -72,7 +72,12 @@ export default class Gfx {
         if (line.length > 0) {
             lines.push(line);
         }
-        for (const l of lines) {
+        return lines;
+    }
+
+    // word-wrapped text, returns the y after the last line
+    static wrap(str: string, x: number, y: number, maxWidth: number, rgb: number = COL.YELLOW, font: FontName = 'p11', lineHeight: number = 12, centred: boolean = false): number {
+        for (const l of this.lines(str, maxWidth, font)) {
             if (centred) {
                 this.centre(l, x + ((maxWidth / 2) | 0), y, rgb, font);
             } else {
@@ -142,14 +147,15 @@ export default class Gfx {
         // edges
         this.clip(x + cw, y, x + w - cw, y + h, () => {
             for (let tx = x + cw; tx < x + w - cw; tx += 36) {
-                hedge.plotSprite(tx, y - 2);
-                hedge.plotSprite(tx, y + h - 36 + 2);
+                // the edge sprites carry a 15px offset; cancel it so the bars sit flush with the corners
+                hedge.plotSprite(tx, y - hedge.yof);
+                hedge.plotSprite(tx, y + h - hedge.hi - hedge.yof);
             }
         });
         this.clip(x, y + ch, x + w, y + h - ch, () => {
             for (let ty = y + ch; ty < y + h - ch; ty += 36) {
-                vedge.plotSprite(x - 2, ty);
-                vedge.plotSprite(x + w - 36 + 2, ty);
+                vedge.plotSprite(x - vedge.xof, ty);
+                vedge.plotSprite(x + w - vedge.wi - vedge.xof, ty);
             }
         });
         corners[0]?.plotSprite(x, y);
@@ -167,14 +173,16 @@ export default class Gfx {
             const sw = sprite.wi;
             const sh = sprite.hi;
             const edge = 12;
-            const yOff = y + (((h - sh) / 2) | 0);
-            this.clip(x, y, x + edge, y + h, () => sprite.plotSprite(x, yOff));
-            this.clip(x + w - edge, y, x + w, y + h, () => sprite.plotSprite(x + w - sw, yOff));
+            // plotSprite adds the sprite's trim offset; cancel it so the box fills the rect exactly
+            const ox = sprite.xof;
+            const yOff = y + (((h - sh) / 2) | 0) - sprite.yof;
+            this.clip(x, y, x + edge, y + h, () => sprite.plotSprite(x - ox, yOff));
+            this.clip(x + w - edge, y, x + w, y + h, () => sprite.plotSprite(x + w - sw - ox, yOff));
             // middle: repeat only the sprite's interior columns so no inner border shows through
             const inner = sw - edge * 2;
             for (let tx = x + edge; tx < x + w - edge; tx += inner) {
                 const end = Math.min(tx + inner, x + w - edge);
-                this.clip(tx, y, end, y + h, () => sprite.plotSprite(tx - edge, yOff));
+                this.clip(tx, y, end, y + h, () => sprite.plotSprite(tx - edge - ox, yOff));
             }
         } else {
             Pix2D.fillRect(x, y, w, h, active ? 0x7a1f12 : 0x5a5246);

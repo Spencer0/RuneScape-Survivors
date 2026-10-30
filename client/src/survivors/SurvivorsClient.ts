@@ -239,8 +239,17 @@ export default class SurvivorsClient extends GameShell {
     // 50 Hz logic
     // ---------------------------------------------------------------------------------------------
 
+    // Logic runs in fixed 20 ms cycles driven by wall-clock time (not by how often the shell calls
+    // mainloop), so the 600 ms tick and the client's per-cycle movement interpolation stay exactly
+    // in step on every display / frame rate. Walking is 1 tile per tick, like OSRS.
+    private logicAcc = 0;
+    private lastLogic = -1;
+
     protected override async mainloop(): Promise<void> {
-        Cycle.loop++;
+        const now = performance.now();
+        if (this.lastLogic < 0) this.lastLogic = now;
+        this.logicAcc += Math.min(250, now - this.lastLogic);
+        this.lastLogic = now;
 
         for (let key = this.pollKey(); key !== -1; key = this.pollKey()) {
             if (this.screen === 'run') {
@@ -250,11 +259,18 @@ export default class SurvivorsClient extends GameShell {
             else if (this.screen === 'results') this.results.key(key);
         }
 
-        if (this.screen === 'menu') {
-            this.menu.update();
-        } else if (this.screen === 'run') {
-            this.runScreen.update();
+        let steps = 0;
+        while (this.logicAcc >= 20 && steps < 12) {
+            this.logicAcc -= 20;
+            steps++;
+            Cycle.loop++;
+            if (this.screen === 'menu') {
+                this.menu.update();
+            } else if (this.screen === 'run') {
+                this.runScreen.update();
+            }
         }
+        if (steps >= 12) this.logicAcc = 0; // tab was frozen; don't fast-forward
     }
 
     // ---------------------------------------------------------------------------------------------

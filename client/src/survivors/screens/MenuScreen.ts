@@ -8,7 +8,7 @@ import { ZONES, ZONE_BY_ID } from '../../../../sim/src/content/zones.js';
 import { ACHIEVEMENTS, REWARDS, canRankTalent, rankTalent, respec, rewardCostFor, spentAchievementPoints, spentPoints, talentPoints, talentXpForPoint, zoneLockText, type Profile } from '../../../../sim/src/meta.js';
 import type { ClassId } from '../../../../sim/src/types.js';
 
-import { BODY_PARTS, COLOUR_COUNTS, COLOUR_NAMES, buildAppearance, defaultLook, kitsFor, validLook, type Look } from '#/survivors/Appearance.js';
+import { buildAppearance, validLook, type Look } from '#/survivors/Appearance.js';
 import Assets from '#/survivors/Assets.js';
 import Save from '#/survivors/Save.js';
 import Gfx, { COL } from '#/survivors/ui/Gfx.js';
@@ -162,20 +162,23 @@ export default class MenuScreen {
         if (!portrait) {
             const colW = Math.floor((a.w - 16) / 3);
             const classR: Rect = { x: a.x, y: a.y, w: colW, h: a.h };
-            const lookR: Rect = { x: a.x + colW + 8, y: a.y, w: colW, h: a.h };
+            const heroR: Rect = { x: a.x + colW + 8, y: a.y, w: colW, h: a.h };
             const zoneR: Rect = { x: a.x + (colW + 8) * 2, y: a.y, w: colW, h: a.h - 56 };
             this.drawClassPicker(classR, false);
-            this.drawLook(lookR);
+            this.drawHero(heroR);
             this.drawZones(zoneR);
             if (Ui.button({ x: zoneR.x, y: a.y + a.h - 48, w: colW, h: 44 }, 'Enter World', { tip: 'Enter' })) this.enter();
             return;
         }
         const enterH = 46;
-        const content = 120 + 330 + 70 * ZONES.length + 40;
+        const heroH = 340;
+        const zonesH = 70 * ZONES.length + 34;
+        const content = 122 + zonesH + 6 + heroH;
         Ui.scroll('menu', { x: a.x, y: a.y, w: a.w, h: a.h - enterH - 6 }, content, top => {
-            this.drawClassPicker({ x: a.x, y: top, w: a.w - 16, h: 116 }, true);
-            this.drawLook({ x: a.x, y: top + 122, w: a.w - 16, h: 324 });
-            this.drawZones({ x: a.x, y: top + 452, w: a.w - 16, h: 70 * ZONES.length + 34 });
+            const w = content > a.h - enterH - 6 ? a.w - 18 : a.w;
+            this.drawClassPicker({ x: a.x, y: top, w, h: 116 }, true);
+            this.drawZones({ x: a.x, y: top + 122, w, h: zonesH });
+            this.drawHero({ x: a.x, y: top + 128 + zonesH, w, h: heroH });
         });
         if (Ui.button({ x: a.x, y: a.y + a.h - enterH, w: a.w, h: enterH }, 'Enter World')) this.enter();
     }
@@ -210,10 +213,10 @@ export default class MenuScreen {
             Gfx.text(`Talent points: ${pts} (${spentPoints(cp)} spent)`, r.x + 12, ty + 72, COL.GREY, 'p11');
             Gfx.text('Class abilities:', r.x + 12, ty + 96, COL.ORANGE, 'p12');
             const pool = CLASS_POOLS[this.classId];
-            const per = Math.max(1, Math.floor((r.w - 24) / 30));
+            const per = Math.max(1, Math.floor((r.w - 24) / 36));
             pool.forEach((ab, i) => {
-                const ix = r.x + 12 + (i % per) * 30;
-                const iy = ty + 102 + Math.floor(i / per) * 30;
+                const ix = r.x + 17 + (i % per) * 36;
+                const iy = ty + 107 + Math.floor(i / per) * 36;
                 Assets.pix32('miscgraphics', ab.id === cls.start ? 7 : 0)?.plotSprite(ix - 5, iy - 5);
                 Gfx.icon(ab.icon[0], ab.icon[1], ix, iy);
                 if (Ui.hover({ x: ix, y: iy, w: 26, h: 26 })) Ui.tooltip = `${ab.name}: ${ab.targeting ?? ''}`;
@@ -221,57 +224,34 @@ export default class MenuScreen {
         }
     }
 
-    private drawLook(r: Rect): void {
+    // the hero as they'll enter the world: live model in its equipped gear, gear slots, set bonus
+    private drawHero(r: Rect): void {
         Gfx.panel(r.x, r.y, r.w, r.h);
-        Gfx.text('Character', r.x + 12, r.y + 20, COL.ORANGE, 'b12');
-        const look = this.look;
-        // gender
-        const gw = 60;
-        if (Ui.button({ x: r.x + r.w - gw * 2 - 14, y: r.y + 8, w: gw, h: 22 }, 'Male', { active: look.gender === 0, font: 'p11' }) && look.gender !== 0) this.setLook(defaultLook(0));
-        if (Ui.button({ x: r.x + r.w - gw - 10, y: r.y + 8, w: gw, h: 22 }, 'Female', { active: look.gender === 1, font: 'p11' }) && look.gender !== 1) this.setLook(defaultLook(1));
-
-        // preview on the left, arrows on the right
-        const pvW = Math.min(110, (r.w * 0.42) | 0);
-        const pv: Rect = { x: r.x + 8, y: r.y + 34, w: pvW, h: r.h - 44 };
+        Gfx.text('Your hero', r.x + 12, r.y + 20, COL.ORANGE, 'b12');
+        const cls = CLASSES[this.classId];
+        const cp = this.profile.classes[this.classId];
+        const slotsH = 70;
+        const pv: Rect = { x: r.x + 12, y: r.y + 30, w: r.w - 24, h: r.h - 42 - slotsH };
         Gfx.inset(pv.x, pv.y, pv.w, pv.h, 120);
-        Gfx.clip(pv.x, pv.y, pv.x + pv.w, pv.y + pv.h, () => this.preview.draw(pv.x + (pv.w >> 1), pv.y + pv.h - 12, Math.min(pv.h - 30, pv.w * 2)));
+        Gfx.clip(pv.x, pv.y, pv.x + pv.w, pv.y + pv.h, () => this.preview.draw(pv.x + (pv.w >> 1), pv.y + pv.h - 14, Math.min(pv.h - 40, 260)));
         if (Ui.hit(pv)) this.preview.yaw = (this.preview.yaw + 256) & 0x7ff;
 
-        const ax = pv.x + pv.w + 6;
-        const aw = r.x + r.w - 8 - ax;
-        const rows = BODY_PARTS.length + COLOUR_NAMES.length;
-        const rowH = Math.max(22, Math.min(26, ((r.h - 44) / rows) | 0));
-        let y = r.y + 34;
-        BODY_PARTS.forEach((name, part) => {
-            const kits = kitsFor(part, look.gender);
-            if (kits.length === 0) {
-                y += 0;
-                return;
-            }
-            const i = Math.max(0, kits.indexOf(look.body[part]));
-            const d = Ui.arrows({ x: ax, y, w: aw, h: rowH - 2 }, name, `${i + 1}/${kits.length}`);
-            if (d !== 0) {
-                const next = { ...look, body: [...look.body] };
-                next.body[part] = kits[(i + d + kits.length) % kits.length];
-                this.setLook(next);
-            }
-            y += rowH;
+        // equipped gear
+        const wornIcon: Record<GearSlot, number> = { head: 0, body: 4, legs: 7, weapon: 3, shield: cls.id === 'melee' ? 6 : cls.id === 'ranged' ? 8 : 9 };
+        const cell = 36;
+        const gx = r.x + ((r.w - GEAR_SLOTS.length * (cell + 4) + 4) >> 1);
+        const gy = pv.y + pv.h + 8;
+        GEAR_SLOTS.forEach((slot, i) => {
+            const x = gx + i * (cell + 4);
+            Gfx.inset(x, gy, cell, cell, 140);
+            const tier = cp.equipped[slot] ?? -1;
+            if (tier >= 0) Gfx.item(Assets.game.objs[cls.gear[slot][tier]], x + 2, gy + 2);
+            else Gfx.iconTrans('wornicons', wornIcon[slot], x + 2, gy + 2, 70);
+            if (Ui.hover({ x, y: gy, w: cell, h: cell })) Ui.tooltip = tier >= 0 ? `${TIER_NAMES[tier]} ${slot}` : `No ${slot} equipped`;
         });
-        COLOUR_NAMES.forEach((name, c) => {
-            const d = Ui.arrows({ x: ax, y, w: aw, h: rowH - 2 }, `${name} colour`, `${look.colours[c] + 1}/${COLOUR_COUNTS[c]}`);
-            if (d !== 0) {
-                const next = { ...look, colours: [...look.colours] };
-                next.colours[c] = (next.colours[c] + d + COLOUR_COUNTS[c]) % COLOUR_COUNTS[c];
-                this.setLook(next);
-            }
-            y += rowH;
-        });
-    }
-
-    private setLook(look: Look): void {
-        this.profile.appearance = validLook(look);
-        this.previewDirty = true;
-        this.save();
+        const tiers = GEAR_SLOTS.map(s2 => cp.equipped[s2] ?? -1);
+        const bonus = tiers.every(t => t >= 0) ? setBonusText(this.classId, Math.min(...tiers)) : 'Bosses drop gear - equip it in Collection';
+        Gfx.centre(bonus, r.x + (r.w >> 1), gy + cell + 16, tiers.every(t => t >= 0) ? COL.GREEN : COL.GREY, 'p11');
     }
 
     private drawZones(r: Rect): void {
@@ -286,7 +266,7 @@ export default class MenuScreen {
             Gfx.inset(b.x, b.y, b.w, b.h, sel ? 60 : 130);
             if (sel) Pix2D.drawRect(b.x, b.y, b.w, b.h, COL.ORANGE);
             Gfx.text(z.name, b.x + 8, b.y + 16, unlocked ? (sel ? COL.WHITE : COL.ORANGE) : COL.DARK_GREY, 'b12');
-            if (cp.zonesWon.includes(z.id)) Gfx.icon('miscgraphics', 11, b.x + b.w - 30, b.y - 4);
+            if (cp.zonesWon.includes(z.id)) Gfx.icon('miscgraphics', 11, b.x + b.w - 22, b.y + 5);
             if (unlocked) {
                 Gfx.wrap(z.flavour, b.x + 8, b.y + 30, b.w - 16, COL.YELLOW, 'p11', 11);
             } else {
@@ -319,8 +299,10 @@ export default class MenuScreen {
             this.say('Talents reset.');
         }
         const list: Rect = { x: a.x + 8, y: a.y + 46, w: a.w - 16, h: a.h - 54 };
-        const rowH = 40;
-        const content = cls.talents.length * (rowH + 4) + 5 * 18;
+        const descW = list.w - 20 - 38 - 58;
+        const rowH = (t: (typeof cls.talents)[number]): number => 28 + 12 * Gfx.lines(t.desc(Math.max(1, cp.talents[t.id] ?? 0)), descW).length;
+        const tiers = new Set(cls.talents.map(t => t.tier)).size;
+        const content = cls.talents.reduce((n, t) => n + rowH(t) + 4, 0) + tiers * 18;
         Ui.scroll('menu', list, content, top => {
             let y = top;
             for (let tier = 0; tier <= 4; tier++) {
@@ -331,19 +313,19 @@ export default class MenuScreen {
                 for (const t of ts) {
                     const rank = cp.talents[t.id] ?? 0;
                     const err = canRankTalent(this.classId, cp, t.id);
-                    const row: Rect = { x: list.x, y, w: list.w - 20, h: rowH };
+                    const row: Rect = { x: list.x, y, w: list.w - 20, h: rowH(t) };
                     Gfx.inset(row.x, row.y, row.w, row.h, rank > 0 ? 60 : 120);
                     Gfx.icon(t.icon[0], t.icon[1], row.x + 6, row.y + 7);
                     Gfx.text(`${t.name}${t.milestone ? ' (milestone)' : ''}`, row.x + 38, row.y + 15, rank > 0 ? COL.GREEN : COL.ORANGE, 'b12');
                     Gfx.text(`${rank}/${t.maxRank}`, row.x + row.w - 92, row.y + 15, COL.WHITE, 'p12');
-                    Gfx.text(t.desc(Math.max(1, rank)), row.x + 38, row.y + 32, COL.YELLOW, 'p11');
-                    if (Ui.button({ x: row.x + row.w - 50, y: row.y + 7, w: 42, h: 26 }, '+', { enabled: err === null, tip: err ?? 'Spend a point' })) {
+                    Gfx.wrap(t.desc(Math.max(1, rank)), row.x + 38, row.y + 31, descW, COL.YELLOW, 'p11');
+                    if (Ui.button({ x: row.x + row.w - 50, y: row.y + ((row.h - 26) >> 1), w: 42, h: 26 }, '+', { enabled: err === null, tip: err ?? 'Spend a point' })) {
                         if (rankTalent(this.classId, cp, t.id)) {
                             this.save();
                             this.previewDirty = true;
                         }
                     }
-                    y += rowH + 4;
+                    y += row.h + 4;
                 }
             }
         });
@@ -363,17 +345,17 @@ export default class MenuScreen {
         for (const r of REWARDS) {
             const have = r.get(p);
             const cost = rewardCostFor(r, p);
-            const row: Rect = { x: a.x + 10, y, w: a.w - 20, h: 46 };
+            const row: Rect = { x: a.x + 10, y, w: a.w - 20, h: 30 + 12 * Gfx.lines(r.desc, a.w - 150).length };
             Gfx.inset(row.x, row.y, row.w, row.h, have > 0 ? 60 : 120);
             Gfx.text(`${r.name}  (${have}/${r.max})`, row.x + 8, row.y + 17, have > 0 ? COL.GREEN : COL.ORANGE, 'b12');
-            Gfx.wrap(r.desc, row.x + 8, row.y + 33, row.w - 130, COL.YELLOW, 'p11');
+            Gfx.wrap(r.desc, row.x + 8, row.y + 32, row.w - 130, COL.YELLOW, 'p11');
             const can = have < r.max && free >= cost;
-            if (Ui.button({ x: row.x + row.w - 110, y: row.y + 9, w: 100, h: 28 }, have >= r.max ? 'Owned' : `Buy ${cost}`, { enabled: can, font: 'p12' })) {
+            if (Ui.button({ x: row.x + row.w - 110, y: row.y + ((row.h - 28) >> 1), w: 100, h: 28 }, have >= r.max ? 'Owned' : `Buy ${cost}`, { enabled: can, font: 'p12' })) {
                 r.buy(p);
                 this.save();
                 this.say(`Unlocked: ${r.name}`);
             }
-            y += 52;
+            y += row.h + 6;
         }
         if (Ui.button({ x: a.x + 10, y: y + 6, w: 160, h: 28 }, 'Reset rewards', { font: 'p12', tip: 'Refund all reward points' })) {
             p.perks = { rerolls: 0, banish: 0, openingHand: false, pet: false };
@@ -442,19 +424,23 @@ export default class MenuScreen {
         Gfx.panel(a.x, a.y, a.w, a.h);
         const done = ACHIEVEMENTS.filter(x => p.achievements[x.id] !== undefined).length;
         Gfx.text(`Achievements ${done}/${ACHIEVEMENTS.length} - ${p.achievementPoints} points`, a.x + 12, a.y + 20, COL.ORANGE, 'b12');
-        const list: Rect = { x: a.x + 8, y: a.y + 30, w: a.w - 16, h: a.h - 38 };
-        Ui.scroll('menu', list, ACHIEVEMENTS.length * 38, top => {
-            ACHIEVEMENTS.forEach((ach, i) => {
+        const list: Rect = { x: a.x + 10, y: a.y + 30, w: a.w - 20, h: a.h - 56 };
+        const descW = list.w - 20 - 34 - 64;
+        const rowH = (desc: string): number => 22 + 12 * Gfx.lines(desc, descW).length;
+        Ui.scroll('menu', list, ACHIEVEMENTS.reduce((n, ach) => n + rowH(ach.desc) + 4, 0), top => {
+            let y = top;
+            for (const ach of ACHIEVEMENTS) {
                 const got = p.achievements[ach.id] !== undefined;
-                const y = top + i * 38;
-                Gfx.inset(list.x, y, list.w - 20, 34, got ? 50 : 130);
-                if (got) Gfx.icon('miscgraphics', 11, list.x + 2, y - 2);
+                const h = rowH(ach.desc);
+                Gfx.inset(list.x, y, list.w - 20, h, got ? 50 : 130);
+                if (got) Gfx.icon('miscgraphics', 11, list.x + 12, y + ((h - 15) >> 1));
                 Gfx.text(ach.name, list.x + 34, y + 14, got ? COL.GREEN : COL.ORANGE, 'b12');
-                Gfx.text(ach.desc, list.x + 34, y + 28, got ? COL.WHITE : COL.GREY, 'p11');
-                Gfx.right(`${ach.points} pts`, list.x + list.w - 28, y + 20, COL.YELLOW, 'p12');
-            });
+                Gfx.wrap(ach.desc, list.x + 34, y + 28, descW, got ? COL.WHITE : COL.GREY, 'p11');
+                Gfx.right(`${ach.points} pts`, list.x + list.w - 28, y + (h >> 1) + 5, COL.YELLOW, 'p12');
+                y += h + 4;
+            }
         });
-        Gfx.text(`Lifetime: ${p.stats.runs} runs, ${p.stats.kills} kills, ${p.stats.bosses} bosses, ${p.stats.wins} wins`, a.x + 12, a.y + a.h - 6, COL.GREY, 'p11');
+        Gfx.text(`Lifetime: ${p.stats.runs} runs, ${p.stats.kills} kills, ${p.stats.bosses} bosses, ${p.stats.wins} wins`, a.x + 12, a.y + a.h - 12, COL.GREY, 'p11');
     }
 
     // --------------------------------------------------------------------------------------------

@@ -66,6 +66,13 @@ export default class RunScreen {
     private snapsThisSecond = 0;
     private bossNameCycle = 0;
     telegraphCount = 0;
+    private dest: { x: number; z: number } | null = null;
+    private destIdle = 0;
+
+    // the clicked destination tile, marked faintly until you arrive (like the OSRS destination flag)
+    private markDest(): void {
+        if (this.dest) World.setHighlight(this.dest.x, this.dest.z, 0xffffff, 72);
+    }
 
     constructor(private readonly host: RunHost) {}
 
@@ -81,6 +88,7 @@ export default class RunScreen {
         this.hud = null;
         this.messages = [];
         this.overDelay = -1;
+        this.dest = null;
 
         World.clearHighlights();
         RunScreen.setArenaBounds(arenaData);
@@ -170,6 +178,9 @@ export default class RunScreen {
                 this.bridge.send({ type: 'walk', x: World.groundX, z: World.groundZ });
                 this.crossMode = 1;
                 this.crossCycle = 0;
+                this.dest = { x: World.groundX, z: World.groundZ };
+                this.destIdle = -1;
+                this.markDest();
             }
             this.pendingWalk = false;
             World.groundX = -1;
@@ -213,6 +224,12 @@ export default class RunScreen {
             const alpha = Math.min(210, 90 + ((t.total - t.ticksLeft + 1) * 120) / Math.max(1, t.total));
             for (const tile of t.tiles) World.setHighlight((tile / 104) | 0, tile % 104, t.colour, alpha | 0);
         }
+        if (this.dest) {
+            // arrived, or stopped short (unreachable tile): drop the marker
+            this.destIdle = snap.playerSteps.length === 0 ? this.destIdle + 1 : 0;
+            if ((snap.playerX === this.dest.x && snap.playerZ === this.dest.z) || this.destIdle >= 2) this.dest = null;
+        }
+        this.markDest();
 
         this.hud = snap.hud;
         const wasLevel = this.levelUp !== null;
@@ -669,7 +686,9 @@ export default class RunScreen {
         const n = lv.cards.length;
         const portrait = Ui.portrait || W < 560;
         const cardW = portrait ? Math.min(W - 24, 360) : Math.min(210, ((W - 40) / n) | 0) - 8;
-        const cardH = portrait ? Math.min(118, ((H - 150) / n) | 0) - 6 : 176;
+        // as tall as the tallest card's text, within what the screen allows
+        const need = Math.max(...lv.cards.map(c => this.cardHeight(c, cardW, portrait)));
+        const cardH = portrait ? Math.min(need, (((H - 150) / n) | 0) - 6) : Math.max(120, Math.min(need, H - 170));
         const totalW = portrait ? cardW : n * (cardW + 8) - 8;
         const totalH = portrait ? n * (cardH + 6) - 6 : cardH;
         const x0 = (W - totalW) >> 1;
@@ -712,11 +731,27 @@ export default class RunScreen {
         const kind = c.kind === 'new' ? 'New!' : c.kind === 'rank' ? `Rank ${c.rankFrom} -> ${c.rankTo}` : c.kind === 'passive' ? `Passive${c.rankFrom > 0 ? ` ${c.rankFrom} -> ${c.rankTo}` : ''}` : '';
         Gfx.text(`${RARITY_NAMES[c.rarity]} ${c.family}`, r.x + 48, r.y + 34, COL.GREY, 'p11');
         if (kind) Gfx.text(kind, r.x + 48, r.y + 46, c.kind === 'new' ? COL.GREEN : COL.YELLOW, 'p11');
-        let y = r.y + (compact ? 58 : 66);
+        const top = r.y + (compact ? 58 : 66);
+        if (this.cardColumns(c, r.w, compact) === 2) {
+            const half = Math.ceil(c.lines.length / 2);
+            c.lines.forEach((line, i) => Gfx.text(line, r.x + 8 + (i < half ? 0 : (r.w - 16) >> 1), top + (i % half) * 12, COL.WHITE, 'p11'));
+            return;
+        }
+        let y = top;
         for (const line of c.lines) {
             y = Gfx.wrap(line, r.x + 8, y, r.w - 16, COL.WHITE, 'p11', 12);
             if (y > r.y + r.h - 4) break;
         }
+    }
+
+    // compact (portrait) cards put short stat lines in two columns
+    private cardColumns(c: CardView, w: number, compact: boolean): 1 | 2 {
+        return compact && c.lines.length > 2 && c.lines.every(l => Gfx.width(l, 'p11') <= ((w - 16) >> 1) - 6) ? 2 : 1;
+    }
+
+    private cardHeight(c: CardView, w: number, compact: boolean): number {
+        const rows = this.cardColumns(c, w, compact) === 2 ? Math.ceil(c.lines.length / 2) : c.lines.reduce((n, l) => n + Gfx.lines(l, w - 16).length, 0);
+        return (compact ? 58 : 66) + 12 * Math.max(0, rows - 1) + 12;
     }
 
     private drawVictory(): void {

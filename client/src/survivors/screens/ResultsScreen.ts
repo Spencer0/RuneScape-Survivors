@@ -36,16 +36,7 @@ export default class ResultsScreen {
         Gfx.stone(0, 0, W, H);
         const pw = Math.min(W - 12, 700);
         const px = (W - pw) >> 1;
-        const ph = H - 12;
-        Gfx.panel(px, 6, pw, ph);
-        const zone = ZONE_BY_ID[r.zoneId];
-        Gfx.centre(r.won ? `${zone.name} cleared!` : 'Oh dear, you are dead!', W >> 1, 42, r.won ? COL.GREEN : COL.RED, 'q8');
-        Gfx.centre(`${CLASSES[r.classId as ClassId].name} - ${zone.name}${r.endless ? ' (endless)' : ''}`, W >> 1, 58, COL.ORANGE, 'p12');
-
-        const listTop = 66;
-        const btnH = 40;
-        const area: Rect = { x: px + 22, y: listTop, w: pw - 44, h: ph - listTop - btnH - 10 };
-        const two = area.w >= 520;
+        const two = pw - 44 >= 520;
         const secs = Math.round(r.ticksSurvived * 0.6);
         const stats: [string, string][] = [
             ['Time survived', `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`],
@@ -61,6 +52,17 @@ export default class ResultsScreen {
         const leftLines = stats.length * 16 + 20 + r.bossesKilled.length * 14;
         const rightLines = 20 + r.abilities.length * 14 + 20 + r.sets.length * 14 + 20 + ap.newAchievements.length * 14 + ap.gear.length * 14 + 40;
         const content = two ? Math.max(leftLines, rightLines) : leftLines + rightLines;
+
+        // the panel hugs its content (scrolling only when the screen is too short), centred
+        const btnH = 40;
+        const ph = Math.min(H - 12, 60 + content + 10 + btnH + 24);
+        const py = Math.max(6, (H - ph) >> 1);
+        Gfx.panel(px, py, pw, ph);
+        const zone = ZONE_BY_ID[r.zoneId];
+        Gfx.centre(r.won ? `${zone.name} cleared!` : 'Oh dear, you are dead!', W >> 1, py + 36, r.won ? COL.GREEN : COL.RED, 'q8');
+        Gfx.centre(`${CLASSES[r.classId as ClassId].name} - ${zone.name}${r.endless ? ' (endless)' : ''}`, W >> 1, py + 52, COL.ORANGE, 'p12');
+        const listTop = py + 60;
+        const area: Rect = { x: px + 22, y: listTop, w: pw - 44, h: py + ph - listTop - btnH - 24 };
 
         Ui.scroll('results', area, content, top => {
             const colW = two ? ((area.w - 30) / 2) | 0 : area.w - 20;
@@ -129,7 +131,7 @@ export default class ResultsScreen {
             }
         });
 
-        if (Ui.button({ x: px + 22, y: 6 + ph - btnH - 14, w: pw - 44, h: btnH }, 'Continue')) this.onContinue();
+        if (Ui.button({ x: px + 22, y: py + ph - btnH - 14, w: pw - 44, h: btnH }, 'Continue')) this.onContinue();
         void Pix2D;
         void Assets;
     }
